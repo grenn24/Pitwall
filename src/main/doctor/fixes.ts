@@ -199,11 +199,16 @@ export function runViaScript(
     scriptPath,
     [
       "$ErrorActionPreference = 'Continue'",
-      // Out-File with an explicit encoding, not Tee-Object: Tee-Object in
-      // Windows PowerShell writes UTF-16LE, which reads back as text with a NUL
-      // between every character. The window is hidden, so there is nothing to
-      // tee to anyway.
-      `& '${fix.file}' @(${psArgs}) *>&1 | Out-File -FilePath '${logPath}' -Encoding utf8`,
+      // Appended line by line rather than piped to Out-File.
+      //
+      // Out-File buffers the whole pipeline and only writes when the command
+      // finishes, so an 80-second install produced an empty log for 80 seconds
+      // and looked indistinguishable from a hang. Add-Content per line flushes
+      // as output arrives.
+      //
+      // Not Tee-Object either: it writes UTF-16LE in Windows PowerShell, which
+      // reads back with a NUL between every character.
+      `& '${fix.file}' @(${psArgs}) *>&1 | ForEach-Object { Add-Content -Path '${logPath}' -Encoding utf8 -Value $_ }`,
       '$code = $LASTEXITCODE',
       'if ($null -eq $code) { $code = 0 }',
       // Completion is signalled by a separate one-line file rather than a
