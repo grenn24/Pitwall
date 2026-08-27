@@ -70,13 +70,14 @@ export const FIXES: Record<FixId, Fix> = {
     onSuccess: () => writeState({ wslInstalledAt: new Date().toISOString() })
   },
   'distro-install': {
-    command: 'wsl --install -d Ubuntu --web-download --no-launch',
+    command: 'wsl --install Ubuntu --web-download --no-launch',
     file: 'wsl.exe',
     // Three flags, each earning its place.
     //
-    // -d names the distribution: `wsl --install` on its own installs the
-    // platform and nothing else on current Windows builds, whatever the
-    // documentation says about a default.
+    // The distribution is positional. `-d` is not an option of --install, and
+    // passing it made wsl exit zero having installed nothing at all — no
+    // package, no launcher, no instance. `wsl --install` on its own installs
+    // the platform and no distribution, whatever the docs say about a default.
     //
     // --web-download fetches from Microsoft rather than the Store, which
     // stalls indefinitely on a machine with no Store account signed in.
@@ -86,7 +87,7 @@ export const FIXES: Record<FixId, Fix> = {
     // a person — all of which this avoids. Commands run as root until someone
     // opens the distribution and creates an account, which is fine for cloning
     // and running containers.
-    args: ['--install', '-d', 'Ubuntu', '--web-download', '--no-launch'],
+    args: ['--install', 'Ubuntu', '--web-download', '--no-launch'],
     elevated: true,
     whileRunning: 'Downloading and registering Ubuntu. This is a few hundred megabytes.',
     afterward: 'Ubuntu is installed.',
@@ -201,6 +202,12 @@ export function runViaScript(fix: Fix, elevate: boolean, onProgress?: (text: str
     let lastChange = Date.now()
     let polls = 0
     let checkingLanded = false
+    // When the process reports success but the fix has a way to check the
+    // machine, the machine gets the final word. A command that exits zero
+    // having done nothing is not a hypothetical: wsl exits zero on an
+    // unrecognised option, and reported a distribution installed that was
+    // never downloaded.
+    let processSucceededAt: number | null = null
 
     const cleanup = (keepLog: boolean): void => {
       clearInterval(poll)
@@ -270,14 +277,32 @@ export function runViaScript(fix: Fix, elevate: boolean, onProgress?: (text: str
         try {
           code = Number(readFileSync(donePath, 'ascii').trim()) || 0
         } catch {
-          // Written but not yet readable; let the re-probe be the judge.
+          // Written but not yet readable; let the machine check be the judge.
         }
         onProgress?.(text)
-        done(
-          code === 0
-            ? { ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart }
-            : { ok: false, error: explain(text, `exit ${code}`) }
-        )
+        if (code !== 0) {
+          done({ ok: false, error: explain(text, `exit ${code}`) })
+          return
+        }
+        if (!fix.landed) {
+          done({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
+          return
+        }
+        // Exited cleanly, but this fix can be verified. Wait for the machine.
+        processSucceededAt ??= Date.now()
+      }
+
+      // A clean exit that never shows up on the machine is a failure, and
+      // saying so is far better than reporting a success nobody can see.
+      if (processSucceededAt && Date.now() - processSucceededAt > 90_000) {
+        done({
+          ok: false,
+          error: `The command finished without error, but nothing changed on this machine.
+
+${
+            text.trim().split('\n').slice(-4).join('\n') || '(no output)'
+          }`
+        })
         return
       }
 
@@ -313,7 +338,12 @@ export function runViaScript(fix: Fix, elevate: boolean, onProgress?: (text: str
         const log = readLog()
         diag(`execFile returned err=${err ? String(err).split('\n')[0] : 'none'} doneExists=${existsSync(donePath)}`)
         if (!err) {
-          done({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
+          if (!fix.landed) {
+            done({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
+            return
+          }
+          // Verifiable fixes wait for the machine to agree; the poll settles it.
+          processSucceededAt ??= Date.now()
           return
         }
         done({

@@ -39,6 +39,20 @@ const cases: { name: string; fix: Fix; expectOk: boolean; maxMs?: number }[] = [
     maxMs: 15_000
   },
   {
+    // wsl exits zero on an unrecognised option and installs nothing. A clean
+    // exit is not evidence that anything happened.
+    name: 'clean exit that changes nothing is a failure',
+    fix: {
+      command: 'true',
+      file: 'cmd.exe',
+      args: ['/c', 'exit', '0'],
+      elevated: true,
+      landed: async () => false
+    },
+    expectOk: false,
+    maxMs: 120_000
+  },
+  {
     name: 'reports a non-zero exit as failure',
     fix: { command: 'exit 3', file: 'cmd.exe', args: ['/c', 'exit', '3'], elevated: true },
     expectOk: false
