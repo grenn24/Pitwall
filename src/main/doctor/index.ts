@@ -90,6 +90,44 @@ export async function runDoctor(): Promise<DoctorReport> {
     raw: listRaw
   })
 
+  // 4 — git, inside the distribution.
+  //
+  // Every clone and every worktree runs in there, so its absence is fatal to
+  // the whole product — and a fresh WSL image does not always include it. Left
+  // undetected it surfaces as a confusing failure inside a clone rather than a
+  // check with an answer.
+  const gitProbe = await wslExec(
+    target.name,
+    'command -v git >/dev/null 2>&1 && git --version || echo __MISSING__',
+    60_000
+  )
+  const gitLine = gitProbe.stdout.trim().split(/\r?\n/).pop() ?? ''
+
+  if (gitProbe.timedOut) {
+    checks.push({
+      id: 'git',
+      label: 'Git inside the distribution',
+      status: 'warn',
+      detail: `${target.name} did not answer in time.`,
+      remediation: `A distribution that has just been installed can be slow to start. Check again in a moment.`
+    })
+    return finish(checks, targetDistro, started)
+  }
+
+  if (gitLine === '__MISSING__' || !gitLine) {
+    checks.push({
+      id: 'git',
+      label: 'Git inside the distribution',
+      status: 'fail',
+      detail: `Not installed inside ${target.name}.`,
+      fixId: 'distro-git',
+      remediation: 'Every clone and worktree runs inside the distribution, so git has to be there rather than on Windows.'
+    })
+    return finish(checks, targetDistro, started)
+  }
+
+  checks.push({ id: 'git', label: 'Git inside the distribution', status: 'ok', detail: gitLine })
+
   // 4 — Docker, checked from inside the distro.
   //
   // Not from Windows. `docker` resolves on the Windows PATH to a non-executable
@@ -187,6 +225,7 @@ const ALL_CHECKS: { id: CheckId; label: string }[] = [
   { id: 'wsl', label: 'Windows Subsystem for Linux' },
   { id: 'wslVersion', label: 'WSL 2 is the default' },
   { id: 'distro', label: 'A Linux distribution' },
+  { id: 'git', label: 'Git inside the distribution' },
   { id: 'docker', label: 'Docker daemon' },
   { id: 'compose', label: 'Docker Compose v2' }
 ]

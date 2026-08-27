@@ -40,6 +40,14 @@ export interface Fix {
    * nowhere to appear, and the command sits there having apparently succeeded
    * while nothing happens. Completion comes from `landed` instead.
    */
+  /**
+   * Build the arguments once the target distribution is known.
+   *
+   * Used by the few fixes that act inside a distribution. The name is
+   * validated before use and reaches the process as an argv element, never
+   * through a shell.
+   */
+  argsFor?: (distro: string) => string[]
   interactive?: boolean
   /** What to expect afterwards. */
   afterward?: string
@@ -116,6 +124,18 @@ export const FIXES: Record<FixId, Fix> = {
     afterward: 'Ubuntu is installed and ready.',
     landed: async () => chooseTargetDistro((await listDistros()).distros) !== null
   },
+  'distro-git': {
+    command: 'sudo apt-get install -y git',
+    file: 'wsl.exe',
+    args: [],
+    argsFor: (distro) => ['-d', distro, '--', 'bash', '-lc', 'sudo apt-get update && sudo apt-get install -y git'],
+    elevated: false,
+    // apt asks for a sudo password, so this one needs a window and a person.
+    interactive: true,
+    whileRunning: 'A terminal window is open. Enter your Linux password there to install git.',
+    afterward: 'Git is installed inside the distribution.',
+    landed: () => distroHas('git')
+  },
   'docker-install': {
     command: `winget ${WINGET_DOCKER.join(' ')}`,
     file: 'winget.exe',
@@ -139,6 +159,11 @@ export const FIXES: Record<FixId, Fix> = {
     afterward: 'Docker Desktop is starting. It takes a moment to report "Engine running".',
     landed: () => dockerAnswers('docker version --format "{{.Server.Os}}" >/dev/null 2>&1 && echo yes')
   }
+}
+
+/** True when the named tool exists inside the usable distribution. */
+export async function distroHas(tool: string): Promise<boolean> {
+  return dockerAnswers(`command -v ${tool} >/dev/null 2>&1 && echo yes`)
 }
 
 /** True when the given probe answers "yes" inside the usable distribution. */
@@ -183,9 +208,39 @@ export function fixFor(id: FixId | undefined): Fix | undefined {
  * afterwards. That is the honest signal anyway: what matters is the state of the
  * machine, not what a command claimed about itself.
  */
+/**
+ * Distribution names that are safe to hand to a process.
+ *
+ * Names come from parsing `wsl --list`, not from the user, but they still cross
+ * into argument lists — so they are checked rather than trusted. Anything with
+ * a quote, a shell metacharacter or a newline in it is refused.
+ */
+const SAFE_DISTRO = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,63}$/
+
 export function runFix(id: FixId, onProgress?: (text: string) => void): Promise<FixOutcome> {
-  const fix = fixFor(id)
-  if (!fix) return Promise.resolve({ ok: false, error: 'No fix is defined for this check.' })
+  const base = fixFor(id)
+  if (!base) return Promise.resolve({ ok: false, error: 'No fix is defined for this check.' })
+  return resolveArgs(base).then((fix) => {
+    if (!fix) {
+      return {
+        ok: false,
+        error: 'No usable Linux distribution to run this in.'
+      } satisfies FixOutcome
+    }
+    return dispatch(fix, onProgress)
+  })
+}
+
+/** Bind a distribution-scoped fix to the distribution it will act on. */
+async function resolveArgs(fix: Fix): Promise<Fix | null> {
+  if (!fix.argsFor) return fix
+
+  const target = chooseTargetDistro((await listDistros()).distros)
+  if (!target || !SAFE_DISTRO.test(target.name)) return null
+  return { ...fix, args: fix.argsFor(target.name) }
+}
+
+function dispatch(fix: Fix, onProgress?: (text: string) => void): Promise<FixOutcome> {
 
   if (fix.interactive) return runInteractive(fix)
   if (!fix.elevated) return runPlain(fix)
@@ -204,9 +259,16 @@ function runInteractive(fix: Fix): Promise<FixOutcome> {
   diag(`interactive launch ${fix.command}`)
   return new Promise((resolve) => {
     execFile(
-      'cmd.exe',
-      ['/c', 'start', '', fix.file, ...fix.args],
-      { windowsHide: false, timeout: 60_000 },
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `Start-Process -FilePath '${fix.file}' -ArgumentList ${fix.args
+          .map((a) => `'${a.replaceAll("'", "''")}'`)
+          .join(',')}`
+      ],
+      { windowsHide: true, timeout: 60_000 },
       (err) => {
         if (err) {
           resolve({ ok: false, error: `Could not open a terminal for this step. ${String(err).split('\n')[0]}` })

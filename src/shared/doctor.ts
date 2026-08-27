@@ -48,13 +48,14 @@ export interface CheckResult {
   raw?: string
 }
 
-export type CheckId = 'wsl' | 'wslVersion' | 'distro' | 'docker' | 'compose'
+export type CheckId = 'wsl' | 'wslVersion' | 'distro' | 'git' | 'docker' | 'compose'
 
 export type FixId =
   | 'restart-windows'
   | 'wsl-install'
   | 'wsl-default-v2'
   | 'distro-install'
+  | 'distro-git'
   | 'docker-install'
   | 'docker-start'
 
