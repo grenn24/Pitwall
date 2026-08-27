@@ -3,6 +3,7 @@ import { readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { decodeWslOutput } from '../wsl/exec'
 import type { FixId, FixOutcome } from '../../shared/doctor'
 
 /**
@@ -146,6 +147,25 @@ function runPlain(fix: Fix): Promise<FixOutcome> {
  * and composing the equivalent inline means three levels of nested quoting —
  * a file sidesteps both problems.
  */
+/** Written by the generated script as its last act, so completion is observable. */
+const SENTINEL = '__PITWALL_EXIT__'
+
+/**
+ * Run an elevated fix with no visible console.
+ *
+ * Two traps, both hit in real use.
+ *
+ * A Windows console has QuickEdit on by default, so one click inside it
+ * suspends the process — the title gains the word "Select" and nothing else
+ * happens, which is indistinguishable from a slow install. So the window is
+ * hidden and output is teed to a log we poll.
+ *
+ * And completion cannot rest on Start-Process -Wait. Between UAC, a hidden
+ * window and a nested elevation, a wait that never returns leaves the UI
+ * claiming work is still running long after it finished. The generated script
+ * therefore writes its own exit code into the log as its last act, and whichever
+ * signal arrives first — the sentinel or the wait — ends the run.
+ */
 function runElevated(fix: Fix, onProgress?: (text: string) => void): Promise<FixOutcome> {
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const logPath = join(tmpdir(), `pitwall-fix-${stamp}.log`)
@@ -156,26 +176,83 @@ function runElevated(fix: Fix, onProgress?: (text: string) => void): Promise<Fix
     scriptPath,
     [
       "$ErrorActionPreference = 'Continue'",
-      `& '${fix.file}' @(${psArgs}) *>&1 | Tee-Object -FilePath '${logPath}'`,
-      'exit $LASTEXITCODE'
+      // Out-File with an explicit encoding, not Tee-Object: Tee-Object in
+      // Windows PowerShell writes UTF-16LE, which reads back as text with a NUL
+      // between every character. The window is hidden, so there is nothing to
+      // tee to anyway.
+      `& '${fix.file}' @(${psArgs}) *>&1 | Out-File -FilePath '${logPath}' -Encoding utf8`,
+      '$code = $LASTEXITCODE',
+      'if ($null -eq $code) { $code = 0 }',
+      `Add-Content -Path '${logPath}' -Encoding utf8 -Value ("${SENTINEL}=" + $code)`,
+      'exit $code'
     ].join('\r\n'),
     'utf8'
   )
 
-  let lastSent = ''
-  const poll = setInterval(() => {
-    try {
-      const text = readFileSync(logPath, 'utf8').trim()
-      if (text && text !== lastSent) {
-        lastSent = text
-        onProgress?.(text)
-      }
-    } catch {
-      // The log does not exist until the elevated process creates it.
-    }
-  }, 700)
-
   return new Promise((resolve) => {
+    let settled = false
+    let lastText = ''
+    let lastChange = Date.now()
+
+    const cleanup = (): void => {
+      clearInterval(poll)
+      try {
+        unlinkSync(scriptPath)
+        unlinkSync(logPath)
+      } catch {
+        // Best effort. A stray file in temp is not worth failing over.
+      }
+    }
+
+    const done = (outcome: FixOutcome): void => {
+      if (settled) return
+      settled = true
+      cleanup()
+      resolve(outcome)
+    }
+
+    const readLog = (): string => {
+      try {
+        // Sniffed, not assumed. Some Windows tools write UTF-16 whatever the
+        // redirection asked for, and a NUL between every character is easy to
+        // miss in a log yet fatal to a string search.
+        return decodeWslOutput(readFileSync(logPath)).replace(/^\uFEFF/, '')
+      } catch {
+        return ''
+      }
+    }
+
+    const poll = setInterval(() => {
+      const text = readLog()
+
+      const marker = text.lastIndexOf(SENTINEL)
+      if (marker !== -1) {
+        const code = Number(text.slice(marker + SENTINEL.length + 1).trim().split(/\s/)[0])
+        const body = text.slice(0, marker).trim()
+        onProgress?.(body)
+        done(
+          code === 0
+            ? { ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart }
+            : { ok: false, error: explain(body, `exit ${code}`) }
+        )
+        return
+      }
+
+      if (text && text !== lastText) {
+        lastText = text
+        lastChange = Date.now()
+        onProgress?.(text)
+        return
+      }
+
+      // Say so rather than showing a spinner that means nothing. A nested VM can
+      // genuinely take this long, and silence is the only thing worth flagging.
+      const stalledFor = Math.round((Date.now() - lastChange) / 1000)
+      if (stalledFor >= 180 && stalledFor % 30 < 1) {
+        onProgress?.(`${lastText}\n\n[still running — no new output for ${Math.round(stalledFor / 60)} min]`)
+      }
+    }, 900)
+
     execFile(
       'powershell.exe',
       [
@@ -184,27 +261,17 @@ function runElevated(fix: Fix, onProgress?: (text: string) => void): Promise<Fix
         '-Command',
         `$p = Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${scriptPath}' -Verb RunAs -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode`
       ],
-      { timeout: 30 * 60_000, windowsHide: true, encoding: 'buffer' },
+      { timeout: 45 * 60_000, windowsHide: true, encoding: 'buffer' },
       (err, out, errOut) => {
-        clearInterval(poll)
-        let log = ''
-        try {
-          log = readFileSync(logPath, 'utf8')
-        } catch {
-          // Nothing was written; the prompt was probably declined.
-        }
-        try {
-          unlinkSync(scriptPath)
-          unlinkSync(logPath)
-        } catch {
-          // Best effort. A stray file in temp is not worth failing over.
-        }
-
+        const log = readLog()
         if (!err) {
-          resolve({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
+          done({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
           return
         }
-        resolve({ ok: false, error: explain(log + Buffer.concat([out as Buffer, errOut as Buffer]).toString('utf8'), err) })
+        done({
+          ok: false,
+          error: explain(log + Buffer.concat([out as Buffer, errOut as Buffer]).toString('utf8'), err)
+        })
       }
     )
   })

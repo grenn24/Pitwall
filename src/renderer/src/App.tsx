@@ -3,6 +3,11 @@ import { useCallback, useEffect, useState } from 'react'
 import Preview from './Preview'
 import type { CheckResult, DoctorReport, FixOutcome } from '../../shared/doctor'
 
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`
+}
+
 const STATUS_LABEL: Record<CheckResult['status'], string> = {
   ok: 'Ready',
   warn: 'Check',
@@ -16,6 +21,17 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
   const [fixing, setFixing] = useState(false)
   const [outcome, setOutcome] = useState<FixOutcome | null>(null)
   const [progress, setProgress] = useState('')
+  const [elapsed, setElapsed] = useState(0)
+
+  // Elapsed time, because "Running…" on its own cannot distinguish work in
+  // progress from something that has quietly stopped answering.
+  useEffect(() => {
+    if (!fixing) return
+    const started = Date.now()
+    setElapsed(0)
+    const timer = window.setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000)
+    return () => window.clearInterval(timer)
+  }, [fixing])
 
   useEffect(
     () =>
@@ -83,7 +99,7 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
                 <code>{check.command}</code>
                 {check.canFix && (
                   <button type="button" className="btn btn--tiny btn--primary" onClick={() => void runFix()} disabled={fixing}>
-                    {fixing ? 'Running…' : 'Run this'}
+                    {fixing ? `Running… ${formatElapsed(elapsed)}` : 'Run this'}
                   </button>
                 )}
                 <button type="button" className="btn btn--tiny" onClick={() => void copy()}>
