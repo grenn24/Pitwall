@@ -441,6 +441,25 @@ td:first-child{color:var(--ink);font-weight:600}
 }
 .crit li.done{color:var(--ink-mute)}
 
+/* ---------- command reference ---------- */
+.cmds{display:flex;flex-direction:column;gap:18px}
+.cmd-item{display:flex;flex-direction:column;gap:6px}
+.cmd-item h4{font-size:.94rem;font-weight:600;letter-spacing:-.003em}
+.cmd-item p{font-size:.9rem;color:var(--ink-mute)}
+pre.sh{
+  margin:0;
+  padding:12px 14px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:5px;
+  overflow-x:auto;
+  font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  font-size:12px;
+  line-height:1.65;
+  color:var(--ink);
+  white-space:pre;
+}
+
 .legend{
   display:flex;
   flex-wrap:wrap;
@@ -494,6 +513,7 @@ footer{
     <a href="#m7"><span class="n">M7</span>Review screen</a>
     <a href="#m8"><span class="n">M8</span>Close the loop</a>
     <div class="sep"></div>
+    <a href="#bench"><span class="n">—</span>Test bench</a>
     <a href="#order"><span class="n">—</span>Why this order</a>
     <a href="#risk"><span class="n">—</span>Risks</a>
     <a href="#cuts"><span class="n">—</span>Cut lines</a>
@@ -579,6 +599,75 @@ footer{
         </div>
       </div>
     </article>
+
+    <section id="bench">
+      <div class="head">
+        <div class="eyebrow"><span class="num">TEST BENCH</span></div>
+        <h2>The clean-machine loop</h2>
+      </div>
+      <p>M0's last exit criterion needs a machine that has never seen a dev tool. The VM is <code>Pitwall-Test</code>, and it holds a checkpoint named <code>clean</code> taken after Windows finished installing and before anything else touched it.</p>
+      <div class="note warn">
+        <span class="label">Two things that bite</span>
+        <p>Every Hyper-V command needs an <strong>elevated</strong> PowerShell. And Windows PowerShell 5.1 rejects <code>&amp;&amp;</code> as a separator — use <code>;</code>, or run PowerShell 7.</p>
+      </div>
+
+      <div class="cmds">
+        <div class="cmd-item">
+          <h4>Rebuild the installer</h4>
+          <p>Run in the project directory, in any shell. Always writes the same filename, so nothing downstream has to guess which build is current.</p>
+          <pre class="sh">npm run dist:unsigned</pre>
+        </div>
+
+        <div class="cmd-item">
+          <h4>Reset to clean and load the current build</h4>
+          <p>The loop you will run most. The pause lets the guest finish booting: <code>Copy-VMFile</code> needs its integration services running and fails with a timeout if it arrives too early.</p>
+          <pre class="sh">Restore-VMCheckpoint -VMName "Pitwall-Test" -Name "clean" -Confirm:$false
+Start-VM -Name "Pitwall-Test"
+Start-Sleep -Seconds 60
+Copy-VMFile -Name "Pitwall-Test" `
+  -SourcePath "C:\Users\Hoo Di Heng\OneDrive\Documents\Computer Science\Projects\Pitwall\release\Pitwall-0.0.1-setup.exe" `
+  -DestinationPath "C:\Users\Public\Downloads\Pitwall-setup.exe" `
+  -CreateFullPath -FileSource Host -Force</pre>
+        </div>
+
+        <div class="cmd-item">
+          <h4>Copy a fresh build in without resetting</h4>
+          <p>Same destination every time, overwritten. The VM holds exactly one <code>Pitwall-setup.exe</code>, so there is never a question of which one you are running.</p>
+          <pre class="sh">Copy-VMFile -Name "Pitwall-Test" `
+  -SourcePath "C:\Users\Hoo Di Heng\OneDrive\Documents\Computer Science\Projects\Pitwall\release\Pitwall-0.0.1-setup.exe" `
+  -DestinationPath "C:\Users\Public\Downloads\Pitwall-setup.exe" `
+  -CreateFullPath -FileSource Host -Force</pre>
+        </div>
+
+        <div class="cmd-item">
+          <h4>Power</h4>
+          <pre class="sh">Start-VM   -Name "Pitwall-Test"
+Stop-VM    -Name "Pitwall-Test" -Force
+Restart-VM -Name "Pitwall-Test" -Force</pre>
+        </div>
+
+        <div class="cmd-item">
+          <h4>Checkpoints</h4>
+          <p>Take a new one whenever you reach a state worth returning to — WSL installed but no Docker, say, so the Docker path can be retested without repeating everything before it.</p>
+          <pre class="sh">Get-VMCheckpoint -VMName "Pitwall-Test" | Select-Object Name, CreationTime
+Checkpoint-VM -Name "Pitwall-Test" -SnapshotName "wsl-only"
+Restore-VMCheckpoint -VMName "Pitwall-Test" -Name "clean" -Confirm:$false</pre>
+        </div>
+
+        <div class="cmd-item">
+          <h4>Confirm the VM is still configured correctly</h4>
+          <p>Nested virtualization must read <code>True</code> and dynamic memory <code>False</code>, or WSL2 will not start inside the guest. Restoring a checkpoint preserves both, but it is worth checking after any change.</p>
+          <pre class="sh">Get-VMProcessor -VMName "Pitwall-Test" | Select-Object ExposeVirtualizationExtensions, Count
+Get-VMMemory    -VMName "Pitwall-Test" | Select-Object DynamicMemoryEnabled, Startup
+Get-VMSecurity  -VMName "Pitwall-Test" | Select-Object TpmEnabled</pre>
+        </div>
+
+        <div class="cmd-item">
+          <h4>If a console freezes inside the VM</h4>
+          <p>A Windows console with QuickEdit enabled suspends its process the moment someone clicks in it, and shows <code>Select</code> in the title bar. Click the title bar, press Esc. Pitwall no longer opens one, but Docker Desktop and Windows setup still do.</p>
+        </div>
+      </div>
+    </section>
 
     <article class="ms" id="m1">
       <div class="ms-head"><span class="ms-id">M1</span><span class="ms-name">Identity and repo connect</span><span class="ms-dur">4 days</span></div>
