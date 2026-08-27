@@ -4,7 +4,7 @@
  */
 import { FIXES } from '../src/main/doctor/fixes'
 import { runDoctor } from '../src/main/doctor/index'
-import { chooseTargetDistro, listDistros } from '../src/main/doctor/wsl'
+import { chooseTargetDistro, listDistros, rebootPending, wslAwaitingRestart, wslPlatformRegistered, wslPresent } from '../src/main/doctor/wsl'
 import { wslExec } from '../src/main/wsl/exec'
 
 let bad = 0
@@ -58,6 +58,16 @@ if (!target) {
     line(present, `${target.name}: ${tool} present`, present ? '' : 'the workspace layer needs this')
   }
 }
+
+// 3b — the pending-restart claim must never contradict a working WSL, and must
+// never rest on a generic reboot flag alone.
+const working = await wslPresent()
+const registered = await wslPlatformRegistered()
+const generic = await rebootPending()
+const awaiting = await wslAwaitingRestart()
+line(!(working && awaiting), 'never claims a restart is needed while WSL works',
+  `wsl=${working} registered=${registered} genericReboot=${generic} awaiting=${awaiting}`)
+line(!(awaiting && !registered), 'never claims WSL is installed without a WSL signal')
 
 // 4 — the doctor must never report ready without a target distro.
 const report = await runDoctor()
