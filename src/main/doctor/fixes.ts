@@ -205,6 +205,19 @@ function diag(line: string): void {
   }
 }
 
+/**
+ * Write a PowerShell script the way Windows PowerShell will read it.
+ *
+ * A .ps1 without a byte order mark is read as ANSI by Windows PowerShell 5.1,
+ * so anything outside ASCII arrives mangled. That is cosmetic in a window
+ * title and not at all cosmetic in the file paths these scripts embed — a user
+ * whose name is not ASCII would get a broken path and an error that looks like
+ * anything but an encoding problem.
+ */
+function writePowerShellScript(path: string, body: string): void {
+  writeFileSync(path, `\uFEFF${body}`, 'utf8')
+}
+
 export function fixFor(id: FixId | undefined): Fix | undefined {
   return id ? FIXES[id] : undefined
 }
@@ -296,7 +309,7 @@ export function buildInteractiveScript(fix: Fix): string {
 function runInteractive(fix: Fix): Promise<FixOutcome> {
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const scriptPath = join(tmpdir(), `pitwall-interactive-${stamp}.ps1`)
-  writeFileSync(scriptPath, buildInteractiveScript(fix), 'utf8')
+  writePowerShellScript(scriptPath, buildInteractiveScript(fix))
 
   diag(`interactive launch ${fix.command} script=${scriptPath}`)
 
@@ -395,7 +408,7 @@ export function runViaScript(
   const scriptPath = join(tmpdir(), `pitwall-fix-${stamp}.ps1`)
 
   const psArgs = fix.args.map((a) => `'${a}'`).join(',')
-  writeFileSync(
+  writePowerShellScript(
     scriptPath,
     [
       "$ErrorActionPreference = 'Continue'",
@@ -417,8 +430,7 @@ export function runViaScript(
       // dedicated file has neither problem and needs no parsing.
       `Set-Content -Path '${donePath}' -Encoding ascii -Value $code`,
       'exit $code'
-    ].join('\r\n'),
-    'utf8'
+    ].join('\r\n')
   )
 
   diag(`start ${fix.command} elevate=${elevate} script=${scriptPath}`)
