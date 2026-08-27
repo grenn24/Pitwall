@@ -48,7 +48,7 @@ export interface CheckResult {
   raw?: string
 }
 
-export type CheckId = 'wsl' | 'git' | 'docker' | 'compose'
+export type CheckId = 'wsl' | 'distro' | 'git' | 'docker' | 'compose'
 
 export type FixId =
   | 'restart-windows'

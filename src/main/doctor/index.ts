@@ -6,7 +6,7 @@ import type { CheckId, CheckResult, DoctorReport } from '../../shared/doctor'
 
 const DOCS = {
   wsl: 'https://learn.microsoft.com/windows/wsl/install',
-  docker: 'https://docs.docker.com/desktop/wsl/'
+  docker: 'https://docs.docker.com/desktop/setup/install/windows-install/'
 }
 
 /**
@@ -21,19 +21,17 @@ export async function runDoctor(): Promise<DoctorReport> {
   const checks: CheckResult[] = []
   let targetDistro: string | null = null
 
-  // 1 — WSL2 with a distribution, as one question.
+  // 1 — the WSL2 platform.
   //
-  // Deliberately not three checks. The platform, the default version and the
-  // distribution are not independent: `wsl --install` provides all three, and
-  // none of them are real until Windows restarts. Reporting them separately
-  // invited fixing them separately, which is how someone ends up installing a
-  // distribution onto a platform that has not been enabled yet.
+  // Separate from the distribution because they are separate commands with
+  // separate outcomes: installing the platform brings no distribution with it,
+  // and only the platform needs a restart.
   if (readState().wslInstalledAt && !(await wslPresent())) {
     checks.push({
       id: 'wsl',
-      label: 'WSL2 with a Linux distribution',
+      label: 'The WSL2 platform',
       status: 'fail',
-      detail: 'Installed. Windows has to restart before any of it works.',
+      detail: 'Installed. Windows has to restart before it works.',
       remediation: 'Nothing else can be checked until the machine has restarted.',
       fixId: 'restart-windows'
     })
@@ -43,10 +41,10 @@ export async function runDoctor(): Promise<DoctorReport> {
   if (!(await wslPresent())) {
     checks.push({
       id: 'wsl',
-      label: 'WSL2 with a Linux distribution',
+      label: 'The WSL2 platform',
       status: 'fail',
       detail: 'Not installed.',
-      remediation: 'This installs the WSL2 platform and Ubuntu together, then restarts Windows.',
+      remediation: 'This installs the Windows components WSL2 needs, then restarts Windows.',
       fixId: 'wsl-install',
       docsUrl: DOCS.wsl
     })
@@ -60,9 +58,9 @@ export async function runDoctor(): Promise<DoctorReport> {
   if (version === 1) {
     checks.push({
       id: 'wsl',
-      label: 'WSL2 with a Linux distribution',
+      label: 'The WSL2 platform',
       status: 'fail',
-      detail: 'WSL is installed, but version 1 is the default.',
+      detail: 'Installed, but version 1 is the default.',
       remediation: 'Version 1 cannot run the Docker integration.',
       fixId: 'wsl-default-v2',
       docsUrl: DOCS.wsl
@@ -70,19 +68,21 @@ export async function runDoctor(): Promise<DoctorReport> {
     return finish(checks, null, started)
   }
 
+  checks.push({ id: 'wsl', label: 'The WSL2 platform', status: 'ok', detail: 'Installed, version 2 by default.' })
+
+  // 2 — a Linux distribution.
   const { distros, raw: listRaw } = await listDistros()
   const target = chooseTargetDistro(distros)
   if (!target) {
     checks.push({
-      id: 'wsl',
-      label: 'WSL2 with a Linux distribution',
+      id: 'distro',
+      label: 'A Linux distribution',
       status: 'fail',
       detail:
         distros.length > 0
           ? `Only Docker Desktop's own distributions are present (${distros.map((d) => d.name).join(', ')}), and those are reset on upgrade.`
-          : 'The platform is installed, but there is no Linux distribution.',
-      remediation:
-        'Installing the platform does not bring a distribution with it on current Windows builds, so this is a separate step. No restart needed afterwards.',
+          : 'None installed.',
+      remediation: 'Installs Ubuntu. No restart needed afterwards.',
       fixId: 'distro-install',
       docsUrl: DOCS.wsl,
       raw: listRaw
@@ -92,15 +92,15 @@ export async function runDoctor(): Promise<DoctorReport> {
 
   targetDistro = target.name
   checks.push({
-    id: 'wsl',
-    label: 'WSL2 with a Linux distribution',
+    id: 'distro',
+    label: 'A Linux distribution',
     status: target.state.toLowerCase().startsWith('run') ? 'ok' : 'warn',
     detail: `${target.name} (WSL ${target.version}, ${target.state.toLowerCase()})`,
     remediation: target.state.toLowerCase().startsWith('run') ? undefined : `Start it with "wsl -d ${target.name}".`,
     raw: listRaw
   })
 
-  // 2 — git, inside the distribution.
+  // 3 — git, inside the distribution.
   //
   // Every clone and every worktree runs in there, so its absence is fatal to
   // the whole product — and a fresh WSL image does not always include it. Left
@@ -139,7 +139,7 @@ export async function runDoctor(): Promise<DoctorReport> {
 
   checks.push({ id: 'git', label: 'Git inside the distribution', status: 'ok', detail: gitLine })
 
-  // 3 — Docker, checked from inside the distro.
+  // 4 — Docker, checked from inside the distro.
   //
   // Not from Windows. `docker` resolves on the Windows PATH to a non-executable
   // stub on some machines, so a PATH lookup reports success where nothing runs.
@@ -209,7 +209,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     return finish(checks, targetDistro, started)
   }
 
-  // 4 — Compose v2. Preview environments are two containers, described together.
+  // 5 — Compose v2. Preview environments are two containers, described together.
   const composeProbe = await wslExec(target.name, 'docker compose version --short', 15_000)
   const composeVersion = composeProbe.stdout.trim().split(/\r?\n/).pop() ?? ''
   if (composeProbe.code === 0 && composeVersion) {
@@ -231,7 +231,8 @@ export async function runDoctor(): Promise<DoctorReport> {
 
 /** Every check, in order, so a report can show the whole path. */
 const ALL_CHECKS: { id: CheckId; label: string }[] = [
-  { id: 'wsl', label: 'WSL2 with a Linux distribution' },
+  { id: 'wsl', label: 'The WSL2 platform' },
+  { id: 'distro', label: 'A Linux distribution' },
   { id: 'git', label: 'Git inside the distribution' },
   { id: 'docker', label: 'Docker daemon' },
   { id: 'compose', label: 'Docker Compose v2' }

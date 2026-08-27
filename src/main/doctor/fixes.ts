@@ -58,9 +58,12 @@ export const FIXES: Record<FixId, Fix> = {
     afterward: 'Restarting in a few seconds.'
   },
   'wsl-install': {
-    command: 'wsl --install',
+    command: 'wsl --install --no-distribution',
     file: 'wsl.exe',
-    args: ['--install'],
+    // --no-distribution is explicit about what this step does. Plain
+    // `wsl --install` installs no distribution anyway on current builds, so
+    // saying so avoids promising something that will not arrive.
+    args: ['--install', '--no-distribution'],
     elevated: true,
     needsRestart: true,
     whileRunning:

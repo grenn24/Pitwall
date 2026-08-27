@@ -59,7 +59,7 @@ line(!(working && recorded), 'no stale install record while WSL works', `wsl=${w
 // 4 — the doctor must never report ready without a target distro.
 const report = await runDoctor()
 line(!report.ready || Boolean(report.targetDistro), 'ready implies a target distribution')
-line(report.checks.length === 4, 'report always lists every check', `${report.checks.length}`)
+line(report.checks.length === 5, 'report always lists every check', `${report.checks.length}`)
 
 console.log(bad === 0 ? '\nno problems found\n' : `\n${bad} problem(s)\n`)
 process.exit(bad === 0 ? 0 : 1)
