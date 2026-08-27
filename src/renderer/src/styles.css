@@ -392,3 +392,41 @@ h1 {
   user-select: text;
   max-width: 62ch;
 }
+
+/* Pending checks: shown so the whole path is visible, but visibly not yet run. */
+.check--pending .check__status {
+  color: var(--ink-mute);
+  background: transparent;
+  border: 1px dashed var(--line);
+}
+.check--pending .check__label,
+.check--pending .check__detail {
+  opacity: 0.55;
+}
+
+/* A command the user has to run, with a way to take it without retyping. */
+.cmd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.cmd code {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 5px 9px;
+  user-select: text;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.btn--tiny {
+  font-size: 0.78rem;
+  padding: 5px 11px;
+  flex: none;
+}

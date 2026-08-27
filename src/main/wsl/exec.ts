@@ -15,6 +15,15 @@ export interface RunResult {
   stderr: string
   /** Wall-clock milliseconds. WSL2 filesystem cost is the headline risk, so it is always measured. */
   elapsedMs: number
+  /**
+   * True when the command was killed for exceeding its timeout.
+   *
+   * Its own field because a timeout is not a failure result — it is the absence
+   * of one. Collapsing it into "non-zero exit" invites the caller to read empty
+   * output as evidence of something, which is how a missing Docker install got
+   * reported as a stopped daemon.
+   */
+  timedOut: boolean
 }
 
 export class WslError extends Error {
@@ -74,11 +83,14 @@ function spawn(file: string, args: string[], timeoutMs: number): Promise<RunResu
             : err
               ? 1
               : 0
+        // Node reports a timeout kill as `killed` with the configured signal.
+        const timedOut = Boolean(err && (err as { killed?: boolean }).killed)
         resolve({
           code,
           stdout: decodeWslOutput(stdout as Buffer),
           stderr: decodeWslOutput(stderr as Buffer),
-          elapsedMs: Date.now() - started
+          elapsedMs: Date.now() - started,
+          timedOut
         })
       }
     )
@@ -104,6 +116,9 @@ export function wslExec(distro: string, command: string, timeoutMs = 60_000): Pr
 /** Like wslExec, but a non-zero exit is an exception carrying the output. */
 export async function wslExecOrThrow(distro: string, command: string, timeoutMs?: number): Promise<RunResult> {
   const result = await wslExec(distro, command, timeoutMs)
+  if (result.timedOut) {
+    throw new WslError(`Timed out after ${result.elapsedMs} ms`, result)
+  }
   if (result.code !== 0) {
     const detail = (result.stderr || result.stdout).trim().split('\n').slice(-4).join('\n')
     throw new WslError(detail || `Command failed with exit code ${result.code}`, result)

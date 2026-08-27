@@ -1,6 +1,6 @@
 import { chooseTargetDistro, defaultWslVersion, listDistros, wslPresent } from './wsl'
 import { wslExec } from '../wsl/exec'
-import type { CheckResult, DoctorReport } from '../../shared/doctor'
+import type { CheckId, CheckResult, DoctorReport } from '../../shared/doctor'
 
 const DOCS = {
   wsl: 'https://learn.microsoft.com/windows/wsl/install',
@@ -26,7 +26,8 @@ export async function runDoctor(): Promise<DoctorReport> {
       label: 'Windows Subsystem for Linux',
       status: 'fail',
       detail: 'Not installed, or not responding.',
-      remediation: 'Run "wsl --install" in an admin PowerShell, then restart Windows.',
+      remediation: 'Run this in an admin PowerShell, then restart Windows.',
+      command: 'wsl --install',
       docsUrl: DOCS.wsl
     })
     return finish(checks, null, started)
@@ -43,7 +44,8 @@ export async function runDoctor(): Promise<DoctorReport> {
       label: 'WSL 2 is the default',
       status: version === 1 ? 'fail' : 'warn',
       detail: version === 1 ? 'Default version is 1.' : 'Could not read the default version.',
-      remediation: 'Run "wsl --set-default-version 2". Existing distros also need "wsl --set-version <name> 2".',
+      remediation: 'Set the default, then convert any existing distribution with "wsl --set-version <name> 2".',
+      command: 'wsl --set-default-version 2',
       docsUrl: DOCS.wsl,
       raw: statusRaw
     })
@@ -81,12 +83,42 @@ export async function runDoctor(): Promise<DoctorReport> {
   //
   // Not from Windows. `docker` resolves on the Windows PATH to a non-executable
   // stub on some machines, so a PATH lookup reports success where nothing runs.
-  // The only answer that matters is whether the daemon responds to the distro
-  // that will actually be starting containers.
+  //
+  // Existence is asked separately from health, because they have different
+  // answers and different fixes. A freshly created distro can take twenty
+  // seconds to answer its first login shell, and treating that silence as "the
+  // daemon is down" tells someone to go restart software they never installed.
+  const presence = await wslExec(target.name, 'command -v docker >/dev/null 2>&1 && echo present || echo absent', 90_000)
+
+  if (presence.timedOut) {
+    checks.push({
+      id: 'docker',
+      label: 'Docker daemon',
+      status: 'warn',
+      detail: `${target.name} did not answer in time, so Docker could not be checked.`,
+      remediation: `A distribution that has just been installed can be slow to start. Give it a moment and check again, or open it once with "wsl -d ${target.name}".`,
+      raw: presence.stdout + presence.stderr
+    })
+    return finish(checks, targetDistro, started)
+  }
+
+  if (presence.stdout.trim().split(/\r?\n/).pop() !== 'present') {
+    checks.push({
+      id: 'docker',
+      label: 'Docker daemon',
+      status: 'fail',
+      detail: `Not installed inside ${target.name}.`,
+      remediation: `Install Docker Desktop with the WSL 2 engine, then enable integration for ${target.name} under Settings → Resources → WSL Integration.`,
+      docsUrl: DOCS.docker,
+      raw: (presence.stdout + presence.stderr).trim()
+    })
+    return finish(checks, targetDistro, started)
+  }
+
   const dockerProbe = await wslExec(
     target.name,
     'docker version --format "{{.Client.Version}}|{{.Server.Version}}|{{.Server.Os}}"',
-    20_000
+    30_000
   )
   const dockerLine = dockerProbe.stdout.trim().split(/\r?\n/).pop() ?? ''
   const [clientV, serverV, serverOs] = dockerLine.split('|')
@@ -104,17 +136,13 @@ export async function runDoctor(): Promise<DoctorReport> {
       raw: dockerProbe.stdout
     })
   } else {
-    const notInstalled = /command not found/i.test(dockerProbe.stderr + dockerProbe.stdout)
+    // The client exists, so this really is a daemon that is not answering.
     checks.push({
       id: 'docker',
       label: 'Docker daemon',
       status: 'fail',
-      detail: notInstalled
-        ? `Not available inside ${target.name}.`
-        : 'Installed, but the daemon is not responding.',
-      remediation: notInstalled
-        ? `Install Docker Desktop, then enable WSL integration for ${target.name} in Settings → Resources → WSL Integration.`
-        : 'Start Docker Desktop and wait for it to report "Engine running".',
+      detail: 'The Docker command is present, but the daemon is not responding.',
+      remediation: 'Start Docker Desktop and wait for it to report "Engine running".',
       docsUrl: DOCS.docker,
       raw: (dockerProbe.stdout + dockerProbe.stderr).trim()
     })
@@ -141,11 +169,31 @@ export async function runDoctor(): Promise<DoctorReport> {
   return finish(checks, targetDistro, started)
 }
 
+/** Every check, in order, so a report can show the whole path. */
+const ALL_CHECKS: { id: CheckId; label: string }[] = [
+  { id: 'wsl', label: 'Windows Subsystem for Linux' },
+  { id: 'wslVersion', label: 'WSL 2 is the default' },
+  { id: 'distro', label: 'A Linux distribution' },
+  { id: 'docker', label: 'Docker daemon' },
+  { id: 'compose', label: 'Docker Compose v2' }
+]
+
 function finish(checks: CheckResult[], targetDistro: string | null, started: number): DoctorReport {
+  // The probe stops at the first blocker, since later checks depend on earlier
+  // ones. Pad the rest as pending rather than hiding them: someone looking at a
+  // single failed row cannot tell whether they are one step from done or five.
+  const reached = new Set(checks.map((c) => c.id))
+  const padded = [
+    ...checks,
+    ...ALL_CHECKS.filter((c) => !reached.has(c.id)).map(
+      ({ id, label }): CheckResult => ({ id, label, status: 'pending', detail: 'Not checked yet.' })
+    )
+  ]
+
   return {
-    checks,
+    checks: padded,
     targetDistro,
-    ready: checks.every((c) => c.status === 'ok'),
+    ready: padded.every((c) => c.status === 'ok'),
     elapsedMs: Date.now() - started
   }
 }

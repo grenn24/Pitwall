@@ -7,12 +7,22 @@ const STATUS_LABEL: Record<CheckResult['status'], string> = {
   ok: 'Ready',
   warn: 'Check',
   fail: 'Blocked',
-  checking: 'Checking'
+  checking: 'Checking',
+  pending: 'Pending'
 }
 
 function Check({ check }: { check: CheckResult }): JSX.Element {
+  const [copied, setCopied] = useState(false)
+
   const openDocs = (): void => {
     if (check.docsUrl) void window.pitwall.openExternal(check.docsUrl)
+  }
+
+  const copy = async (): Promise<void> => {
+    if (!check.command) return
+    await navigator.clipboard.writeText(check.command)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1600)
   }
 
   return (
@@ -22,14 +32,24 @@ function Check({ check }: { check: CheckResult }): JSX.Element {
         <p className="check__label">{check.label}</p>
         <p className="check__detail">{check.detail}</p>
         {check.remediation && (
-          <p className="check__fix">
-            {check.remediation}
-            {check.docsUrl && (
-              <button className="linklike" type="button" onClick={openDocs}>
-                Open instructions
-              </button>
+          <div className="check__fix">
+            <p>
+              {check.remediation}
+              {check.docsUrl && (
+                <button className="linklike" type="button" onClick={openDocs}>
+                  Open instructions
+                </button>
+              )}
+            </p>
+            {check.command && (
+              <div className="cmd">
+                <code>{check.command}</code>
+                <button type="button" className="btn btn--tiny" onClick={() => void copy()}>
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
             )}
-          </p>
+          </div>
         )}
       </div>
     </li>
@@ -121,7 +141,7 @@ export default function App(): JSX.Element {
       {report && !ready && (
         <p className="hint">
           {blocked > 0
-            ? 'Fix the blocked items above, then check again. Nothing here needs a terminal beyond the commands shown.'
+            ? 'Work through the blocked items above, then check again.'
             : 'Everything essential is present. The warnings above are worth resolving but will not stop a run.'}
         </p>
       )}

@@ -7,7 +7,7 @@
  * and when the answer is no, says what to do about it.
  */
 
-export type CheckStatus = 'ok' | 'warn' | 'fail' | 'checking'
+export type CheckStatus = 'ok' | 'warn' | 'fail' | 'checking' | 'pending'
 
 export interface CheckResult {
   /** Stable id, used by the UI and by tests. */
@@ -21,6 +21,14 @@ export interface CheckResult {
   remediation?: string
   /** A URL the user can open to fix it, when one genuinely helps. */
   docsUrl?: string
+  /**
+   * The exact command to run, when the fix is one.
+   *
+   * Separate from `remediation` so the UI can offer to copy it. Retyping a
+   * command from a screenshot is where typos come from, and on a fresh machine
+   * that is exactly what someone is doing.
+   */
+  command?: string
   /** Raw output, kept for the log pane. Never shown by default. */
   raw?: string
 }
