@@ -430,3 +430,16 @@ h1 {
   padding: 5px 11px;
   flex: none;
 }
+
+/* Outcome of a fix Pitwall ran itself. */
+.check__aside {
+  margin-top: 7px;
+  font-size: 0.82rem;
+  color: var(--ink-mute);
+}
+.check__aside--ok {
+  color: var(--ok);
+}
+.check__aside--bad {
+  color: var(--stop);
+}

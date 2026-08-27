@@ -1,5 +1,6 @@
 import { chooseTargetDistro, defaultWslVersion, listDistros, wslPresent } from './wsl'
 import { wslExec } from '../wsl/exec'
+import { fixFor } from './fixes'
 import type { CheckId, CheckResult, DoctorReport } from '../../shared/doctor'
 
 const DOCS = {
@@ -178,6 +179,15 @@ const ALL_CHECKS: { id: CheckId; label: string }[] = [
   { id: 'compose', label: 'Docker Compose v2' }
 ]
 
+/** Mark the checks Pitwall can repair itself, from main's own command table. */
+function annotateFixes(checks: CheckResult[]): CheckResult[] {
+  return checks.map((check) => {
+    if (check.status === 'ok' || check.status === 'pending') return check
+    const fix = fixFor(check.id)
+    return fix ? { ...check, command: fix.command, canFix: true, fixElevated: fix.elevated } : check
+  })
+}
+
 function finish(checks: CheckResult[], targetDistro: string | null, started: number): DoctorReport {
   // The probe stops at the first blocker, since later checks depend on earlier
   // ones. Pad the rest as pending rather than hiding them: someone looking at a
@@ -191,7 +201,7 @@ function finish(checks: CheckResult[], targetDistro: string | null, started: num
   ]
 
   return {
-    checks: padded,
+    checks: annotateFixes(padded),
     targetDistro,
     ready: padded.every((c) => c.status === 'ok'),
     elapsedMs: Date.now() - started

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import Preview from './Preview'
-import type { CheckResult, DoctorReport } from '../../shared/doctor'
+import type { CheckResult, DoctorReport, FixOutcome } from '../../shared/doctor'
 
 const STATUS_LABEL: Record<CheckResult['status'], string> = {
   ok: 'Ready',
@@ -11,8 +11,10 @@ const STATUS_LABEL: Record<CheckResult['status'], string> = {
   pending: 'Pending'
 }
 
-function Check({ check }: { check: CheckResult }): JSX.Element {
+function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }): JSX.Element {
   const [copied, setCopied] = useState(false)
+  const [fixing, setFixing] = useState(false)
+  const [outcome, setOutcome] = useState<FixOutcome | null>(null)
 
   const openDocs = (): void => {
     if (check.docsUrl) void window.pitwall.openExternal(check.docsUrl)
@@ -23,6 +25,20 @@ function Check({ check }: { check: CheckResult }): JSX.Element {
     await navigator.clipboard.writeText(check.command)
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1600)
+  }
+
+  const runFix = async (): Promise<void> => {
+    setFixing(true)
+    setOutcome(null)
+    try {
+      const result = await window.pitwall.doctor.fix(check.id)
+      setOutcome(result)
+      // Re-probe on success: what the machine looks like afterwards is the only
+      // trustworthy signal, and an elevated command cannot report its own output.
+      if (result.ok) onFixed()
+    } finally {
+      setFixing(false)
+    }
   }
 
   return (
@@ -44,10 +60,23 @@ function Check({ check }: { check: CheckResult }): JSX.Element {
             {check.command && (
               <div className="cmd">
                 <code>{check.command}</code>
+                {check.canFix && (
+                  <button type="button" className="btn btn--tiny btn--primary" onClick={() => void runFix()} disabled={fixing}>
+                    {fixing ? 'Running…' : 'Run this'}
+                  </button>
+                )}
                 <button type="button" className="btn btn--tiny" onClick={() => void copy()}>
                   {copied ? 'Copied' : 'Copy'}
                 </button>
               </div>
+            )}
+            {check.canFix && check.fixElevated && !outcome && (
+              <p className="check__aside">Windows will ask for permission before this runs.</p>
+            )}
+            {outcome && (
+              <p className={outcome.ok ? 'check__aside check__aside--ok' : 'check__aside check__aside--bad'}>
+                {outcome.ok ? (outcome.afterward ?? 'Done.') : outcome.error}
+              </p>
             )}
           </div>
         )}
@@ -112,7 +141,7 @@ export default function App(): JSX.Element {
           {report ? (
             <ul className="checks">
               {report.checks.map((check) => (
-                <Check key={check.id} check={check} />
+                <Check key={check.id} check={check} onFixed={() => void probe()} />
               ))}
             </ul>
           ) : (

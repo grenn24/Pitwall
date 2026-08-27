@@ -29,6 +29,13 @@ export interface CheckResult {
    * that is exactly what someone is doing.
    */
   command?: string
+  /**
+   * True when Pitwall can run the fix itself. The renderer sends this check's
+   * id to ask for it and never the command, so the command table stays in main.
+   */
+  canFix?: boolean
+  /** True when running it will raise a Windows permission prompt. */
+  fixElevated?: boolean
   /** Raw output, kept for the log pane. Never shown by default. */
   raw?: string
 }
@@ -40,6 +47,14 @@ export interface DistroInfo {
   state: string
   version: number
   isDefault: boolean
+}
+
+export interface FixOutcome {
+  ok: boolean
+  /** What to expect next, on success. */
+  afterward?: string
+  /** Why it did not run, on failure. Written for a human. */
+  error?: string
 }
 
 export interface DoctorReport {
