@@ -172,11 +172,9 @@ h3{
   font-size:1.04rem;
   letter-spacing:-.004em;
   padding-top:.55rem;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
+  line-height:1.4;
 }
+h3 .chip{vertical-align:.14em;margin-left:9px}
 strong{font-weight:600;color:var(--ink)}
 
 ul,ol{display:flex;flex-direction:column;gap:.42rem;padding-left:1.15rem}
@@ -410,26 +408,29 @@ td:first-child{color:var(--ink);font-weight:600}
 /* ---------- checklists ----------
    Two states only. A box is filled or it is not. */
 .crit{list-style:none;padding-left:0;gap:.5rem}
+/* Hanging indent, not a grid. A grid item would turn every inline child —
+   every <code>, every text run — into its own cell, which shatters any line
+   that mixes code with prose. */
 .crit li{
-  display:grid;
-  grid-template-columns:15px minmax(0,1fr);
-  gap:11px;
+  position:relative;
+  padding-left:26px;
   font-size:.96rem;
+  line-height:1.6;
   color:var(--ink-mid);
-  align-items:start;
 }
 .crit li::before{
   content:"";
-  display:block;
+  position:absolute;
+  left:0;
+  top:.36rem;
   width:13px;
   height:13px;
-  margin-top:.35rem;
   border:1.5px solid var(--line);
   border-radius:3px;
   font-family:"IBM Plex Mono",monospace;
   font-size:10px;
   font-weight:600;
-  line-height:10px;
+  line-height:11px;
   text-align:center;
 }
 .crit li.done::before{
