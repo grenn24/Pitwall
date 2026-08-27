@@ -32,6 +32,15 @@ export interface Fix {
   args: string[]
   /** True when Windows will show a UAC prompt. */
   elevated: boolean
+  /**
+   * True when the command needs to talk to the user.
+   *
+   * These run in a visible console and are not waited on. Ubuntu's first run
+   * asks for a username and password; with the window hidden that prompt has
+   * nowhere to appear, and the command sits there having apparently succeeded
+   * while nothing happens. Completion comes from `landed` instead.
+   */
+  interactive?: boolean
   /** What to expect afterwards. */
   afterward?: string
   /**
@@ -101,7 +110,10 @@ export const FIXES: Record<FixId, Fix> = {
     // Installing a distribution has not needed elevation since store-based WSL
     // shipped, and asking anyway trains people to click through UAC unread.
     elevated: false,
-    afterward: 'Ubuntu will ask you to choose a username and password.',
+    interactive: true,
+    whileRunning:
+      'A terminal window is open. Choose a username and password for Ubuntu there — this window will catch up on its own.',
+    afterward: 'Ubuntu is installed and ready.',
     landed: async () => chooseTargetDistro((await listDistros()).distros) !== null
   },
   'docker-install': {
@@ -175,8 +187,35 @@ export function runFix(id: FixId, onProgress?: (text: string) => void): Promise<
   const fix = fixFor(id)
   if (!fix) return Promise.resolve({ ok: false, error: 'No fix is defined for this check.' })
 
+  if (fix.interactive) return runInteractive(fix)
   if (!fix.elevated) return runPlain(fix)
   return runViaScript(fix, true, onProgress)
+}
+
+/**
+ * Launch a command in a visible console and do not wait for it.
+ *
+ * The user has to type into this one, so it needs a window, and waiting on a
+ * process that is waiting on a person tells us nothing. `landed` reports when
+ * the machine actually changed, which is the only signal that means anything
+ * here.
+ */
+function runInteractive(fix: Fix): Promise<FixOutcome> {
+  diag(`interactive launch ${fix.command}`)
+  return new Promise((resolve) => {
+    execFile(
+      'cmd.exe',
+      ['/c', 'start', '', fix.file, ...fix.args],
+      { windowsHide: false, timeout: 60_000 },
+      (err) => {
+        if (err) {
+          resolve({ ok: false, error: `Could not open a terminal for this step. ${String(err).split('\n')[0]}` })
+          return
+        }
+        resolve({ ok: true, afterward: fix.whileRunning, pending: true })
+      }
+    )
+  })
 }
 
 function runPlain(fix: Fix): Promise<FixOutcome> {

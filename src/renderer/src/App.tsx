@@ -41,6 +41,15 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
     [check.fixId]
   )
 
+  // An interactive step is finished by the user in a window of its own, so keep
+  // re-probing until the machine agrees it is done. Stops as soon as the check
+  // it belongs to goes green.
+  useEffect(() => {
+    if (!outcome?.pending || check.status === 'ok') return
+    const timer = window.setInterval(onFixed, 5000)
+    return () => window.clearInterval(timer)
+  }, [outcome?.pending, check.status, onFixed])
+
   const openDocs = (): void => {
     if (check.docsUrl) void window.pitwall.openExternal(check.docsUrl)
   }
@@ -73,6 +82,8 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
       // Re-probe on success: what the machine looks like afterwards is the only
       // trustworthy signal, and an elevated command cannot report its own output.
       if (result.ok) onFixed()
+      // A pending launch is not done; the effect above keeps watching.
+      if (result.pending) setFixing(false)
     } finally {
       setFixing(false)
     }

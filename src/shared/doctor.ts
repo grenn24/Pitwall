@@ -68,6 +68,11 @@ export interface DistroInfo {
 export interface FixOutcome {
   ok: boolean
   /**
+   * True when the command was launched but is still waiting on the user, in a
+   * window of its own. The UI should keep watching rather than declare victory.
+   */
+  pending?: boolean
+  /**
    * True when the machine must restart before the change takes effect.
    *
    * Without this the UI re-probes, correctly finds nothing changed yet, and
