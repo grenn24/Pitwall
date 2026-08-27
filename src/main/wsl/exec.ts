@@ -69,6 +69,11 @@ export function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`
 }
 
+/** Run any executable and get the same decoded, timed result shape. */
+export function run(file: string, args: string[], timeoutMs: number): Promise<RunResult> {
+  return spawn(file, args, timeoutMs)
+}
+
 function spawn(file: string, args: string[], timeoutMs: number): Promise<RunResult> {
   const started = Date.now()
   return new Promise((resolve) => {

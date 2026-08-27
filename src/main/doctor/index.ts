@@ -1,4 +1,4 @@
-import { chooseTargetDistro, defaultWslVersion, listDistros, wslPresent } from './wsl'
+import { chooseTargetDistro, defaultWslVersion, listDistros, rebootPending, wslPresent } from './wsl'
 import { wslExec } from '../wsl/exec'
 import { fixFor } from './fixes'
 import type { CheckId, CheckResult, DoctorReport } from '../../shared/doctor'
@@ -22,14 +22,20 @@ export async function runDoctor(): Promise<DoctorReport> {
 
   // 1 — Is WSL there at all?
   if (!(await wslPresent())) {
+    // "Never installed" and "installed a minute ago, waiting for a reboot" look
+    // identical to wsl --status and need opposite advice. Offering to install it
+    // again is how someone ends up watching a second pointless install.
+    const pending = await rebootPending()
     checks.push({
       id: 'wsl',
       label: 'Windows Subsystem for Linux',
       status: 'fail',
-      detail: 'Not installed, or not responding.',
-      remediation: 'Windows needs the WSL2 platform installed, then a restart.',
-      fixId: 'wsl-install',
-      docsUrl: DOCS.wsl
+      detail: pending ? 'Installed, but Windows has not restarted yet.' : 'Not installed, or not responding.',
+      remediation: pending
+        ? 'The install is finished. Windows has to restart before anything can use it.'
+        : 'Windows needs the WSL2 platform installed, then a restart.',
+      fixId: pending ? 'restart-windows' : 'wsl-install',
+      docsUrl: pending ? undefined : DOCS.wsl
     })
     return finish(checks, null, started)
   }

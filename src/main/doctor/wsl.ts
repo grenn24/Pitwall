@@ -1,4 +1,4 @@
-import { wsl } from '../wsl/exec'
+import { run, wsl } from '../wsl/exec'
 import type { DistroInfo } from '../../shared/doctor'
 
 /**
@@ -75,3 +75,31 @@ export function chooseTargetDistro(distros: DistroInfo[]): DistroInfo | null {
 }
 
 export { INFRASTRUCTURE_DISTROS }
+
+/**
+ * Whether Windows is holding a servicing change until the next restart.
+ *
+ * Read from the registry rather than through DISM, which needs elevation. This
+ * is what separates "WSL was never installed" from "WSL was installed a minute
+ * ago and Windows has not rebooted", two states that look identical to
+ * `wsl --status` and have completely different answers.
+ */
+export async function rebootPending(): Promise<boolean> {
+  const keys = [
+    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\RebootPending',
+    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\RebootRequired'
+  ]
+
+  for (const key of keys) {
+    const { code } = await run('reg.exe', ['query', key], 8_000)
+    if (code === 0) return true
+  }
+
+  // A rename queued for the next boot is the other reliable signal.
+  const pendingRenames = await run(
+    'reg.exe',
+    ['query', 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager', '/v', 'PendingFileRenameOperations'],
+    8_000
+  )
+  return pendingRenames.code === 0
+}
