@@ -15,6 +15,15 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
   const [copied, setCopied] = useState(false)
   const [fixing, setFixing] = useState(false)
   const [outcome, setOutcome] = useState<FixOutcome | null>(null)
+  const [progress, setProgress] = useState('')
+
+  useEffect(
+    () =>
+      window.pitwall.doctor.onFixProgress((p) => {
+        if (p.id === check.fixId) setProgress(p.text)
+      }),
+    [check.fixId]
+  )
 
   const openDocs = (): void => {
     if (check.docsUrl) void window.pitwall.openExternal(check.docsUrl)
@@ -40,6 +49,7 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
   const runFix = async (): Promise<void> => {
     setFixing(true)
     setOutcome(null)
+    setProgress('')
     try {
       if (!check.fixId) return
       const result = await window.pitwall.doctor.fix(check.fixId)
@@ -87,6 +97,9 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
                   ? 'Windows will ask for permission, then a console window opens showing progress. It closes when the command finishes.'
                   : 'A console window opens showing progress. It closes when the command finishes.'}
               </p>
+            )}
+            {fixing && progress && (
+              <pre className="fixlog">{progress.split('\n').slice(-6).join('\n')}</pre>
             )}
             {outcome && !outcome.needsRestart && (
               <p className={outcome.ok ? 'check__aside check__aside--ok' : 'check__aside check__aside--bad'}>

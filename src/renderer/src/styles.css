@@ -463,3 +463,21 @@ h1 {
   color: var(--ink);
   margin: 0;
 }
+
+/* Live output from a fix, streamed from the elevated process's log. Shown here
+   rather than in a console window, where a stray click would suspend it. */
+.fixlog {
+  margin-top: 8px;
+  padding: 9px 11px;
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-mid);
+  white-space: pre-wrap;
+  max-height: 130px;
+  overflow-y: auto;
+  user-select: text;
+}

@@ -55,7 +55,11 @@ void app.whenReady().then(() => {
   ipcMain.handle('doctor:run', () => runDoctor())
   // Takes a check id, never a command. The command table lives in main so the
   // renderer cannot ask for anything that is not on it.
-  ipcMain.handle('doctor:fix', (_event, id: FixId) => runFix(id))
+  ipcMain.handle('doctor:fix', (event, id: FixId) =>
+    runFix(id, (text) => {
+      if (!event.sender.isDestroyed()) event.sender.send('doctor:fix-progress', { id, text })
+    })
+  )
   ipcMain.handle('shell:openExternal', (_event, url: string) => shell.openExternal(url))
 
   // Preview progress is streamed rather than awaited: bringing an environment up
