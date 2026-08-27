@@ -781,9 +781,28 @@ footer{
       </div>
       <p>Futuristic, modern, minimal. Dark and light modes.</p>
       <p>Two candidates for the main screen. <strong>Board</strong> — columns are stages, cards are tickets, and with roles the columns mean something. <strong>Inbox</strong> — only shows agents that are blocked, failed, or waiting for review, and everything else stays quiet.</p>
+      <h3>Navigation <span class="chip new">Decided</span></h3>
+      <p><strong>Two levels: projects, then tickets.</strong> A sidebar lists projects; selecting one lists its tickets; selecting a ticket opens the work — diff, tests, preview, ticket document.</p>
+      <div class="pipe">
+        <div class="stage"><span class="i">01</span><span class="who">Projects</span><span class="what">Persistent sidebar. Switching projects is one click from anywhere.</span></div>
+        <div class="stage"><span class="i">02</span><span class="who">Tickets</span><span class="what">The list for the selected project, ordered by state rather than by date.</span></div>
+        <div class="stage"><span class="i">03</span><span class="who">Ticket</span><span class="what">Diff, test output, screenshots and the ticket document in one screen (<a href="#s3">§3</a>).</span></div>
+      </div>
       <div class="note">
-        <span class="label">Recommendation</span>
-        <p>Ship the inbox as the default view and the board as a secondary map. With a cap of three concurrent tickets (<a href="#s5">§5</a>), a board is nearly empty and the inbox is nearly always the right screen. The board earns its place at the team tier, where a fleet actually needs a map.</p>
+        <span class="label">Repositories are not a level</span>
+        <p>A project owns one or more repositories as an attribute, not as something you browse. A project containing exactly one repo would be a folder with one file in it, and even when a project spans a frontend and a backend, nobody thinks "I will work on the backend repo" — they think of the ticket, and the ticket knows which repo it touches.</p>
+      </div>
+      <div class="note">
+        <span class="label">The inbox property, without an inbox screen</span>
+        <p>Drill-down navigation buries the thing that needs attention two clicks deep, which is the failure the inbox idea existed to prevent. <strong>Sort the ticket list by state</strong> — blocked and awaiting review at the top, running in the middle, done collapsed at the bottom. One list, ordered by what wants a human. That keeps the sequential navigation and the attention surface in the same screen.</p>
+      </div>
+      <div class="note warn">
+        <span class="label">Build it at M2, not before</span>
+        <p>A ticket has nothing to sort by until the state machine exists. Built earlier, the list shows one row with a name on it and gets rebuilt the moment states arrive. The data lands in M2 and the screen in M7.</p>
+      </div>
+      <div class="note">
+        <span class="label">The board</span>
+        <p>Deferred to the team tier, where a fleet genuinely needs a map. With a cap of three concurrent tickets (<a href="#s5">§5</a>), a board is mostly empty space.</p>
       </div>
     </section>
 
