@@ -5,7 +5,8 @@ import { join } from 'node:path'
 
 import { decodeWslOutput } from '../wsl/exec'
 import { wslExec } from '../wsl/exec'
-import { chooseTargetDistro, defaultWslVersion, listDistros, rebootPending, wslPresent } from './wsl'
+import { writeState } from '../state'
+import { chooseTargetDistro, defaultWslVersion, listDistros, wslPresent } from './wsl'
 import type { FixId, FixOutcome } from '../../shared/doctor'
 
 /**
@@ -28,6 +29,8 @@ export interface Fix {
   command: string
   /** True when the change only takes effect after Windows restarts. */
   needsRestart?: boolean
+  /** Recorded when the fix succeeds, for facts the machine cannot report. */
+  onSuccess?: () => void
   file: string
   args: string[]
   /** True when Windows will show a UAC prompt. */
@@ -101,7 +104,10 @@ export const FIXES: Record<FixId, Fix> = {
     // Enabling the optional components sets a pending-reboot flag, which is the
     // observable moment the install finished. WSL itself cannot work until the
     // restart, so waiting for it to answer would wait forever.
-    landed: async () => (await wslPresent()) || rebootPending(),
+    // Enabling the components cannot be observed directly, so this one is
+    // settled by the process rather than by machine state.
+    landed: async () => wslPresent(),
+    onSuccess: () => writeState({ wslInstalledAt: new Date().toISOString() }),
     afterward: 'Installed. Windows has to restart before Pitwall can see it.'
   },
   'wsl-default-v2': {
@@ -284,6 +290,7 @@ function runPlain(fix: Fix): Promise<FixOutcome> {
   return new Promise((resolve) => {
     execFile(fix.file, fix.args, { timeout: 30 * 60_000, windowsHide: true, encoding: 'buffer' }, (err, out, errOut) => {
       if (!err) {
+        fix.onSuccess?.()
         resolve({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
         return
       }
@@ -387,6 +394,7 @@ export function runViaScript(
     const done = (outcome: FixOutcome): void => {
       if (settled) return
       settled = true
+      if (outcome.ok) fix.onSuccess?.()
       diag(`done ok=${outcome.ok} polls=${polls} error=${outcome.error ?? ''}`)
       // A failed run keeps its log, and the message says where it is. Guessing
       // twice at why something hung is what made that necessary.

@@ -1,4 +1,5 @@
-import { chooseTargetDistro, defaultWslVersion, listDistros, wslAwaitingRestart, wslPresent } from './wsl'
+import { clearState, readState } from '../state'
+import { chooseTargetDistro, defaultWslVersion, listDistros, wslPresent } from './wsl'
 import { wslExec } from '../wsl/exec'
 import { fixFor } from './fixes'
 import type { CheckId, CheckResult, DoctorReport } from '../../shared/doctor'
@@ -25,7 +26,10 @@ export async function runDoctor(): Promise<DoctorReport> {
     // "Never installed" and "installed a minute ago, waiting for a reboot" look
     // identical to wsl --status and need opposite advice. Offering to install it
     // again is how someone ends up watching a second pointless install.
-    const pending = await wslAwaitingRestart()
+    // Only true if this app performed the install. Every attempt to infer it
+    // from the machine produced a confident claim that was false on some
+    // perfectly ordinary Windows install.
+    const pending = Boolean(readState().wslInstalledAt)
     checks.push({
       id: 'wsl',
       label: 'Windows Subsystem for Linux',
@@ -39,6 +43,8 @@ export async function runDoctor(): Promise<DoctorReport> {
     })
     return finish(checks, null, started)
   }
+  // WSL answers, so any record of an install waiting on a restart is spent.
+  if (readState().wslInstalledAt) clearState(['wslInstalledAt'])
   checks.push({ id: 'wsl', label: 'Windows Subsystem for Linux', status: 'ok', detail: 'Installed.' })
 
   // 2 — WSL 2 specifically. Version 1 cannot run the Docker integration.

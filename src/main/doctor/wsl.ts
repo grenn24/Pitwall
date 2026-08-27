@@ -1,4 +1,4 @@
-import { run, wsl } from '../wsl/exec'
+import { wsl } from '../wsl/exec'
 import type { DistroInfo } from '../../shared/doctor'
 
 /**
@@ -75,49 +75,3 @@ export function chooseTargetDistro(distros: DistroInfo[]): DistroInfo | null {
 }
 
 export { INFRASTRUCTURE_DISTROS }
-
-/**
- * Whether Windows is holding a servicing change until the next restart.
- *
- * Only the two servicing keys. PendingFileRenameOperations was in here and had
- * to come out: it is set on virtually every Windows machine at all times, so it
- * reported a pending reboot permanently.
- */
-export async function rebootPending(): Promise<boolean> {
-  for (const key of ['HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\RebootPending', 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\RebootRequired']) {
-    const { code } = await run('reg.exe', ['query', key], 8_000)
-    if (code === 0) return true
-  }
-  return false
-}
-
-/**
- * Has the WSL platform been put on this machine at all?
- *
- * Both keys are created by installing WSL and are absent on a machine that has
- * never had it. WSL 2.x registers WslService rather than the older
- * LxssManager, which is absent even on machines where WSL works.
- */
-export async function wslPlatformRegistered(): Promise<boolean> {
-  for (const key of ['HKLM\\SYSTEM\\CurrentControlSet\\Services\\WslService', 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Lxss']) {
-    const { code } = await run('reg.exe', ['query', key], 8_000)
-    if (code === 0) return true
-  }
-  return false
-}
-
-/**
- * Installed, but waiting for a restart to become usable.
- *
- * Deliberately requires both signals. A pending reboot on its own means
- * nothing: a freshly installed Windows almost always has one from servicing,
- * and reading that alone told a machine with no WSL that its WSL install was
- * finished and merely needed rebooting.
- */
-export async function wslAwaitingRestart(): Promise<boolean> {
-  // Includes the negative check on purpose, so the predicate is true only in
-  // the state it describes no matter where it is called from.
-  if (await wslPresent()) return false
-  if (!(await wslPlatformRegistered())) return false
-  return rebootPending()
-}
