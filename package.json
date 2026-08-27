@@ -11,7 +11,10 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "doctor": "tsx scripts/doctor-cli.ts",
-    "workspace": "tsx scripts/workspace-cli.ts"
+    "workspace": "tsx scripts/workspace-cli.ts",
+    "preview": "tsx scripts/preview-cli.ts",
+    "dist": "electron-vite build && electron-builder --win --config electron-builder.yml",
+    "dist:unsigned": "electron-vite build && electron-builder --win --config electron-builder.yml --config.win.signAndEditExecutable=false"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
@@ -24,6 +27,7 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

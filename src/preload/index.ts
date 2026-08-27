@@ -1,6 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 import type { DoctorReport } from '../shared/doctor'
+import type { PreviewStatus } from '../shared/preview'
+
+export interface PaneBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
 
 /**
  * The only surface the renderer gets. Context isolation is on and node
@@ -10,6 +18,24 @@ import type { DoctorReport } from '../shared/doctor'
 const api = {
   doctor: {
     run: (): Promise<DoctorReport> => ipcRenderer.invoke('doctor:run')
+  },
+  ticket: {
+    open: (remoteUrl: string, ticketId: string): Promise<PreviewStatus> =>
+      ipcRenderer.invoke('ticket:open', { remoteUrl, ticketId }),
+    close: (): Promise<{ containersLeft: string[] } | null> => ipcRenderer.invoke('ticket:close'),
+    status: (): Promise<PreviewStatus | null> => ipcRenderer.invoke('ticket:status'),
+    /** Returns an unsubscribe function, so a re-render cannot stack listeners. */
+    onPhase: (handler: (status: PreviewStatus) => void): (() => void) => {
+      const listener = (_e: unknown, status: PreviewStatus): void => handler(status)
+      ipcRenderer.on('ticket:phase', listener)
+      return () => ipcRenderer.removeListener('ticket:phase', listener)
+    }
+  },
+  preview: {
+    attach: (bounds: PaneBounds): Promise<void> => ipcRenderer.invoke('preview:attach', bounds),
+    setBounds: (bounds: PaneBounds): Promise<void> => ipcRenderer.invoke('preview:bounds', bounds),
+    reload: (): Promise<void> => ipcRenderer.invoke('preview:reload'),
+    hide: (): Promise<void> => ipcRenderer.invoke('preview:hide')
   },
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url)
 }

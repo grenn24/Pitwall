@@ -224,3 +224,123 @@ h1 {
   font-size: 0.88rem;
   max-width: 62ch;
 }
+
+/* ---------- preview ---------- */
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.field--narrow {
+  flex: 0 1 130px;
+}
+.field span {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.field input {
+  font: inherit;
+  font-size: 0.87rem;
+  font-family: var(--mono);
+  padding: 7px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: var(--surface-sunk);
+  color: var(--ink);
+  min-width: 0;
+  user-select: text;
+}
+.field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.field input:disabled {
+  opacity: 0.55;
+}
+
+.urlbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-sunk);
+  font-family: var(--mono);
+  font-size: 11px;
+  user-select: text;
+}
+.urlbar__url {
+  color: var(--ink);
+}
+.urlbar__meta {
+  color: var(--ink-mute);
+}
+
+/* The native preview view is painted over this box, so it must reserve the
+   space and stay empty while a preview is running. */
+.stage {
+  position: relative;
+  min-height: 380px;
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-sunk);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stage__idle {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+  color: var(--ink-mute);
+  font-size: 0.9rem;
+  padding: 20px;
+}
+.stage__hint {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+.stage__error {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 20px;
+  max-width: 100%;
+  overflow: auto;
+}
+.stage__errorTitle {
+  font-weight: 600;
+  color: var(--stop);
+}
+.stage__error pre {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ink-mid);
+  white-space: pre-wrap;
+  user-select: text;
+  max-width: 62ch;
+}

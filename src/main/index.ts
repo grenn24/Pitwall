@@ -4,6 +4,8 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import { runDoctor } from './doctor/index'
+import { attachPreview, closeTicket, currentStatus, openTicket } from './session'
+import { hidePreview, reloadPreview, setPreviewBounds, type PaneBounds } from './preview/pane'
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -50,6 +52,25 @@ void app.whenReady().then(() => {
   // which is a question only the Windows side can ask.
   ipcMain.handle('doctor:run', () => runDoctor())
   ipcMain.handle('shell:openExternal', (_event, url: string) => shell.openExternal(url))
+
+  // Preview progress is streamed rather than awaited: bringing an environment up
+  // takes tens of seconds, and a UI that shows nothing until it finishes is
+  // indistinguishable from one that has hung.
+  ipcMain.handle('ticket:open', async (event, input: { remoteUrl: string; ticketId: string }) => {
+    return openTicket(input, (status) => {
+      if (!event.sender.isDestroyed()) event.sender.send('ticket:phase', status)
+    })
+  })
+  ipcMain.handle('ticket:close', () => closeTicket())
+  ipcMain.handle('ticket:status', () => currentStatus())
+
+  ipcMain.handle('preview:attach', (event, bounds: PaneBounds) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (window) attachPreview(window, bounds)
+  })
+  ipcMain.handle('preview:bounds', (_event, bounds: PaneBounds) => setPreviewBounds(bounds))
+  ipcMain.handle('preview:reload', () => reloadPreview())
+  ipcMain.handle('preview:hide', () => hidePreview())
 
   createWindow()
 

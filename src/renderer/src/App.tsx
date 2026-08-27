@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
+import Preview from './Preview'
 import type { CheckResult, DoctorReport } from '../../shared/doctor'
 
 const STATUS_LABEL: Record<CheckResult['status'], string> = {
@@ -86,12 +87,12 @@ export default function App(): JSX.Element {
             <button type="button" className="btn" onClick={() => void probe()} disabled={running}>
               {running ? 'Checking…' : 'Check again'}
             </button>
-            <button type="button" className="btn btn--primary" disabled={!report?.ready}>
-              Connect a repo
-            </button>
+
           </div>
         </footer>
       </section>
+
+      {report?.ready && <Preview />}
 
       {report && !report.ready && (
         <p className="hint">

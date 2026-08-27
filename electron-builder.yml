@@ -1,0 +1,37 @@
+appId: sh.pitwall.app
+productName: Pitwall
+copyright: Copyright © 2026 Pitwall
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**
+  - package.json
+
+# Everything Pitwall runs lives in WSL2 and Docker, so the installer ships no
+# native modules and no bundled runtimes. It is the UI and nothing else.
+asar: true
+
+win:
+  # If `npm run dist` fails extracting winCodeSign ("Cannot create symbolic
+  # link"), Windows is refusing symlink creation to a non-admin user. The fix is
+  # to turn on Developer Mode in Settings → System → For developers. Until then
+  # `npm run dist:unsigned` builds a working installer, at the cost of not
+  # stamping the icon and version metadata onto the exe.
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName}-${version}-setup.${ext}
+
+nsis:
+  # Per-user install, so no UAC prompt on first run. Pitwall needs no machine
+  # level privileges — WSL2 and Docker Desktop are already installed by then.
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
+  shortcutName: Pitwall
