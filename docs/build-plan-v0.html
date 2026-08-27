@@ -551,30 +551,31 @@ footer{
     </section>
 
     <article class="ms" id="m0">
-      <div class="ms-head"><span class="ms-id">M0</span><span class="ms-name">Ground truth on Windows</span><span class="ms-dur">1 week</span><span class="ms-state active">3 of 6</span></div>
+      <div class="ms-head"><span class="ms-id">M0</span><span class="ms-name">Ground truth on Windows</span><span class="ms-dur">1 week</span><span class="ms-state active">6 of 6</span></div>
       <div class="ms-body">
         <p>No AI. No agents. No model calls. Prove the substrate everything else stands on.</p>
         <div class="derisk"><span class="k">De-risks</span><span>The entire product. Every later milestone assumes WSL2, Docker and worktrees behave. If they don't, you want to know in week one, not week eight.</span></div>
         <span class="sub">Build</span>
         <ul class="crit">
-          <li>Electron shell, Windows installer</li>
+          <li class="done">Electron shell, Windows installer</li>
           <li class="done">WSL2 and Docker Desktop detection, with versions and a guided install path for what's missing</li>
           <li class="done">Clone a repo into the WSL2 filesystem from the Windows UI</li>
           <li class="done"><code>git worktree add</code> driven from the Windows side, with <code>core.longpaths</code> and <code>core.autocrlf</code> set</li>
-          <li>Postgres container from a seed file, returning a connection string</li>
-          <li>App container started, its URL rendered in a BrowserView</li>
+          <li class="done">Postgres container from a seed file, returning a connection string</li>
+          <li class="done">App container started, its URL rendered in a BrowserView</li>
         </ul>
         <span class="sub">Exit criteria</span>
         <ul class="crit">
           <li>Clean Windows machine to running preview with no terminal, ever</li>
-          <li>One button yields a branch, two containers and a URL that renders</li>
-          <li>Teardown removes branch, containers and worktree, leaving nothing behind</li>
-          <li>Cold-start time measured and written down — it becomes the number you defend</li>
+          <li class="done">One button yields a branch, two containers and a URL that renders</li>
+          <li class="done">Teardown removes branch, containers and worktree, leaving nothing behind</li>
+          <li class="done">Cold-start time measured and written down — it becomes the number you defend</li>
         </ul>
         <div class="note">
           <span class="label">Measured &#183; 27 Aug 2026</span>
-          <p>Environment probe: 354&nbsp;ms, five checks. Blobless clone of <code>facebook/react</code>: 7.5&nbsp;s. Worktree add on that repo: 338&nbsp;ms. Teardown: 154&nbsp;ms.</p>
-          <p>Two detection traps found on real hardware, both now handled: <code>wsl.exe</code> emits UTF-16LE for management commands but UTF-8 for in-distro output, and <code>docker</code> can resolve on the Windows PATH to a non-executable stub, so Docker must be probed from inside the target distro.</p>
+          <p>Full loop on <code>docker/welcome-to-docker</code>: clone, worktree, two containers, HTTP&nbsp;200, seed row present, and nothing left after teardown. <strong>Cold start 51.7&nbsp;s, warm 14.5&nbsp;s.</strong> Environment probe 354&nbsp;ms. Worktree add on <code>facebook/react</code> 338&nbsp;ms.</p>
+          <p>Three traps found on real hardware. <code>wsl.exe</code> emits UTF-16LE for management commands but UTF-8 for in-distro output. <code>docker</code> can resolve on the Windows PATH to a non-executable stub, so it must be probed from inside the target distro. And a compose path built from <code>$HOME</code> then shell-quoted silently does not exist, which made teardown fail while reporting success.</p>
+          <p>Two notes on the plan text above: <code>BrowserView</code> is deprecated as of Electron&nbsp;30, so the preview uses <code>WebContentsView</code>. And the installer needs Windows Developer Mode enabled, or electron-builder cannot unpack its signing toolchain.</p>
         </div>
       </div>
     </article>
