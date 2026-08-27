@@ -2,11 +2,15 @@
  * Exercise the paths a clean machine will walk, on this machine, before
  * someone else has to find out they are broken.
  */
-import { FIXES } from '../src/main/doctor/fixes'
+import { FIXES, buildInteractiveScript } from '../src/main/doctor/fixes'
 import { runDoctor } from '../src/main/doctor/index'
 import { chooseTargetDistro, listDistros, wslPresent } from '../src/main/doctor/wsl'
 import { readState } from '../src/main/state'
 import { wslExec } from '../src/main/wsl/exec'
+import { execFile } from 'node:child_process'
+import { unlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 let bad = 0
 const line = (ok: boolean, label: string, detail = ''): void => {
@@ -36,6 +40,28 @@ for (const [id, fix] of Object.entries(FIXES)) {
   const target = chooseTargetDistro(distros)
   const args = target ? fix.argsFor(target.name) : []
   line(args.length > 0 && args.includes(target?.name ?? ''), `${id}: binds to a distribution`, args.join(' '))
+}
+
+// 1c — the script an interactive fix opens must be valid PowerShell, and must
+// wait at the end. A window that closes on exit shows a flash and no error.
+for (const [id, fix] of Object.entries(FIXES)) {
+  if (!fix.interactive) continue
+  const script = buildInteractiveScript(fix)
+  const file = join(tmpdir(), `pitwall-audit-${id}.ps1`)
+  writeFileSync(file, script, 'utf8')
+
+  const parsed = await new Promise<string>((resolve) => {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-Command', `$e=$null; [void][System.Management.Automation.Language.Parser]::ParseFile('${file}',[ref]$null,[ref]$e); if($e.Count){$e[0].Message}else{'ok'}`],
+      { windowsHide: true, timeout: 30_000 },
+      (err, out) => resolve(err ? String(err) : String(out).trim())
+    )
+  })
+  unlinkSync(file)
+
+  line(parsed === 'ok', `${id}: interactive script parses`, parsed === 'ok' ? '' : parsed)
+  line(script.includes('Read-Host'), `${id}: window waits before closing`)
 }
 
 // 2 — every fix must name a real executable.

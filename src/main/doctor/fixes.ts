@@ -254,15 +254,45 @@ function dispatch(fix: Fix, onProgress?: (text: string) => void): Promise<FixOut
 }
 
 /**
- * Launch a command in a visible console and do not wait for it.
+ * Launch a command in a console the user can actually use.
  *
- * The user has to type into this one, so it needs a window, and waiting on a
- * process that is waiting on a person tells us nothing. `landed` reports when
- * the machine actually changed, which is the only signal that means anything
- * here.
+ * Two things this has to get right, both learned the hard way.
+ *
+ * The window has to survive the command. Launching the executable directly
+ * gives it a console that closes the instant it exits, so a command that fails
+ * in half a second shows a flash and nothing else — no error, no output, no
+ * clue. The generated script waits for a keypress at the end, so whatever
+ * happened is still on screen.
+ *
+ * And it is not waited on. This one is waiting on a person; the machine-state
+ * poll reports when the world actually changed.
  */
+export function buildInteractiveScript(fix: Fix): string {
+  const psArgs = fix.args.map((a) => `'${a.replaceAll("'", "''")}'`).join(',')
+  return [
+      "$Host.UI.RawUI.WindowTitle = 'Pitwall — setup'",
+      `Write-Host "Running: ${fix.command.replaceAll('"', '`"')}" -ForegroundColor Cyan`,
+      'Write-Host ""',
+      "$ErrorActionPreference = 'Continue'",
+      `& '${fix.file}' @(${psArgs})`,
+      'Write-Host ""',
+      'if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {',
+      '  Write-Host "The command exited with code $LASTEXITCODE." -ForegroundColor Yellow',
+      '} else {',
+      '  Write-Host "Finished. You can close this window." -ForegroundColor Green',
+      '}',
+      'Write-Host "Press Enter to close."',
+      '[void](Read-Host)'
+  ].join('\r\n')
+}
+
 function runInteractive(fix: Fix): Promise<FixOutcome> {
-  diag(`interactive launch ${fix.command}`)
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const scriptPath = join(tmpdir(), `pitwall-interactive-${stamp}.ps1`)
+  writeFileSync(scriptPath, buildInteractiveScript(fix), 'utf8')
+
+  diag(`interactive launch ${fix.command} script=${scriptPath}`)
+
   return new Promise((resolve) => {
     execFile(
       'powershell.exe',
@@ -270,12 +300,24 @@ function runInteractive(fix: Fix): Promise<FixOutcome> {
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        `Start-Process -FilePath '${fix.file}' -ArgumentList ${fix.args
-          .map((a) => `'${a.replaceAll("'", "''")}'`)
-          .join(',')}`
+        `Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${scriptPath}' -WindowStyle Normal`
       ],
       { windowsHide: true, timeout: 60_000 },
       (err) => {
+        // The script outlives this call, so it is cleaned up on a delay rather
+        // than immediately — deleting it now would pull it out from under the
+        // window that is about to read it.
+        setTimeout(
+          () => {
+            try {
+              unlinkSync(scriptPath)
+            } catch {
+              // Best effort.
+            }
+          },
+          30 * 60_000
+        ).unref()
+
         if (err) {
           resolve({ ok: false, error: `Could not open a terminal for this step. ${String(err).split('\n')[0]}` })
           return
