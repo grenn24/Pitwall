@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -94,6 +94,26 @@ export const FIXES: Record<FixId, Fix> = {
     ],
     elevated: false,
     afterward: 'Docker Desktop is starting. It takes a moment to report "Engine running".'
+  }
+}
+
+/**
+ * Append-only record of what this module actually did.
+ *
+ * Kept because reasoning about this path from the outside failed four times.
+ * The files a run leaves behind cannot distinguish "never happened" from
+ * "happened and was cleaned up", so the app writes down what it saw.
+ *
+ * Never deleted, and never contains anything but our own paths and timings.
+ */
+export const DIAG_PATH = join(tmpdir(), 'pitwall-fix-diagnostics.log')
+
+function diag(line: string): void {
+  try {
+    appendFileSync(DIAG_PATH, `${new Date().toISOString()}  ${line}
+`, 'utf8')
+  } catch {
+    // Diagnostics must never be the reason something fails.
   }
 }
 
@@ -196,10 +216,13 @@ export function runViaScript(
     'utf8'
   )
 
+  diag(`start ${fix.command} elevate=${elevate} script=${scriptPath}`)
+
   return new Promise((resolve) => {
     let settled = false
     let lastText = ''
     let lastChange = Date.now()
+    let polls = 0
 
     const cleanup = (keepLog: boolean): void => {
       clearInterval(poll)
@@ -215,6 +238,7 @@ export function runViaScript(
     const done = (outcome: FixOutcome): void => {
       if (settled) return
       settled = true
+      diag(`done ok=${outcome.ok} polls=${polls} error=${outcome.error ?? ''}`)
       // A failed run keeps its log, and the message says where it is. Guessing
       // twice at why something hung is what made that necessary.
       cleanup(!outcome.ok)
@@ -235,7 +259,11 @@ Full output: ${logPath}` })
     }
 
     const poll = setInterval(() => {
+      polls++
       const text = readLog()
+      if (polls === 1 || polls % 20 === 0) {
+        diag(`poll ${polls} done=${existsSync(donePath)} logBytes=${text.length}`)
+      }
 
       if (existsSync(donePath)) {
         let code = 0
@@ -283,6 +311,7 @@ Full output: ${logPath}` })
       { timeout: 45 * 60_000, windowsHide: true, encoding: 'buffer' },
       (err, out, errOut) => {
         const log = readLog()
+        diag(`execFile returned err=${err ? String(err).split('\n')[0] : 'none'} doneExists=${existsSync(donePath)}`)
         if (!err) {
           done({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
           return
