@@ -10,7 +10,7 @@
  */
 import { runViaScript, type Fix } from '../src/main/doctor/fixes'
 
-const cases: { name: string; fix: Fix; expectOk: boolean }[] = [
+const cases: { name: string; fix: Fix; expectOk: boolean; maxMs?: number }[] = [
   {
     name: 'succeeds and reports output',
     fix: { command: 'ver', file: 'cmd.exe', args: ['/c', 'ver'], elevated: true, afterward: 'done' },
@@ -22,6 +22,23 @@ const cases: { name: string; fix: Fix; expectOk: boolean }[] = [
     expectOk: true
   },
   {
+    // The point of the machine-state poll: a long-running command that will not
+    // finish for 30 seconds is settled the moment the world actually changes.
+    name: 'finishes early when the state says so',
+    fix: {
+      command: 'sleep 30',
+      file: 'cmd.exe',
+      args: ['/c', 'ping', '-n', '30', '127.0.0.1'],
+      elevated: true,
+      landed: (() => {
+        const from = Date.now()
+        return async (): Promise<boolean> => Date.now() - from > 5_000
+      })()
+    },
+    expectOk: true,
+    maxMs: 15_000
+  },
+  {
     name: 'reports a non-zero exit as failure',
     fix: { command: 'exit 3', file: 'cmd.exe', args: ['/c', 'exit', '3'], elevated: true },
     expectOk: false
@@ -30,13 +47,14 @@ const cases: { name: string; fix: Fix; expectOk: boolean }[] = [
 
 let failures = 0
 
-for (const { name, fix, expectOk } of cases) {
+for (const { name, fix, expectOk, maxMs } of cases) {
   const started = Date.now()
   let ticks = 0
   const outcome = await runViaScript(fix, false, () => {
     ticks++
   })
-  const ok = outcome.ok === expectOk
+  const took = Date.now() - started
+  const ok = outcome.ok === expectOk && (maxMs === undefined || took <= maxMs)
   if (!ok) failures++
   console.log(
     `${ok ? 'PASS' : 'FAIL'}  ${name.padEnd(36)} ok=${String(outcome.ok).padEnd(5)} ` +

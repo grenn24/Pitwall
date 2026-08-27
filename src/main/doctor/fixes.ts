@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { decodeWslOutput } from '../wsl/exec'
+import { wslExec } from '../wsl/exec'
+import { chooseTargetDistro, defaultWslVersion, listDistros, rebootPending, wslPresent } from './wsl'
 import type { FixId, FixOutcome } from '../../shared/doctor'
 
 /**
@@ -41,6 +43,17 @@ export interface Fix {
    * Saying so is better than an empty box that looks like a hang.
    */
   whileRunning?: string
+  /**
+   * Has this fix taken effect on the machine?
+   *
+   * The primary completion signal, polled while the command runs. Exit
+   * codes, marker files and log output are all proxies for this question,
+   * and every one of them has failed in practice: a console that suspends
+   * on a click, a wait that never returns, a log in the wrong encoding,
+   * output a tool refuses to flush. The state of the machine cannot lie
+   * about any of them.
+   */
+  landed?: () => Promise<boolean>
 }
 
 const WINGET_DOCKER = [
@@ -68,13 +81,18 @@ export const FIXES: Record<FixId, Fix> = {
     elevated: true,
     needsRestart: true,
     whileRunning: 'Installing the WSL2 platform. This usually takes one to three minutes and prints almost nothing while it works.',
+    // Enabling the optional components sets a pending-reboot flag, which is the
+    // observable moment the install finished. WSL itself cannot work until the
+    // restart, so waiting for it to answer would wait forever.
+    landed: async () => (await wslPresent()) || rebootPending(),
     afterward: 'Installed. Windows has to restart before Pitwall can see it.'
   },
   'wsl-default-v2': {
     command: 'wsl --set-default-version 2',
     file: 'wsl.exe',
     args: ['--set-default-version', '2'],
-    elevated: true
+    elevated: true,
+    landed: async () => (await defaultWslVersion()).version === 2
   },
   'distro-install': {
     command: 'wsl --install -d Ubuntu',
@@ -83,7 +101,8 @@ export const FIXES: Record<FixId, Fix> = {
     // Installing a distribution has not needed elevation since store-based WSL
     // shipped, and asking anyway trains people to click through UAC unread.
     elevated: false,
-    afterward: 'Ubuntu will ask you to choose a username and password.'
+    afterward: 'Ubuntu will ask you to choose a username and password.',
+    landed: async () => chooseTargetDistro((await listDistros()).distros) !== null
   },
   'docker-install': {
     command: `winget ${WINGET_DOCKER.join(' ')}`,
@@ -91,6 +110,7 @@ export const FIXES: Record<FixId, Fix> = {
     args: WINGET_DOCKER,
     elevated: true,
     whileRunning: 'Downloading and installing Docker Desktop. This is a large download and can take several minutes.',
+    landed: () => dockerAnswers('command -v docker >/dev/null 2>&1 && echo yes'),
     afterward:
       'Docker Desktop is installed. Start it, and if it does not pick up your distribution automatically, enable it under Settings → Resources → WSL Integration.'
   },
@@ -104,8 +124,18 @@ export const FIXES: Record<FixId, Fix> = {
       "Start-Process -FilePath \"$env:ProgramFiles\\Docker\\Docker\\Docker Desktop.exe\""
     ],
     elevated: false,
-    afterward: 'Docker Desktop is starting. It takes a moment to report "Engine running".'
+    afterward: 'Docker Desktop is starting. It takes a moment to report "Engine running".',
+    landed: () => dockerAnswers('docker version --format "{{.Server.Os}}" >/dev/null 2>&1 && echo yes')
   }
+}
+
+/** True when the given probe answers "yes" inside the usable distribution. */
+async function dockerAnswers(command: string): Promise<boolean> {
+  const { distros } = await listDistros()
+  const target = chooseTargetDistro(distros)
+  if (!target) return false
+  const result = await wslExec(target.name, `${command} || echo no`, 30_000)
+  return result.stdout.trim().split(/\r?\n/).pop() === 'yes'
 }
 
 /**
@@ -239,9 +269,11 @@ export function runViaScript(
     let lastText = ''
     let lastChange = Date.now()
     let polls = 0
+    let checkingLanded = false
 
     const cleanup = (keepLog: boolean): void => {
       clearInterval(poll)
+      if (landedPoll) clearInterval(landedPoll)
       for (const file of keepLog ? [scriptPath, donePath] : [scriptPath, donePath, logPath]) {
         try {
           unlinkSync(file)
@@ -273,6 +305,30 @@ Full output: ${logPath}` })
         return ''
       }
     }
+
+    // The machine-state check runs on its own slower cadence, since each one
+    // shells into the distribution and is far from free.
+    const landedPoll = fix.landed
+      ? setInterval(() => {
+          if (settled || checkingLanded) return
+          checkingLanded = true
+          void fix
+            .landed?.()
+            .then((yes) => {
+              if (yes && !settled) {
+                diag('landed=true — machine state confirms the fix took effect')
+                onProgress?.(lastText)
+                done({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
+              }
+            })
+            .catch(() => {
+              // A probe that cannot answer is not a failure; keep waiting.
+            })
+            .finally(() => {
+              checkingLanded = false
+            })
+        }, 4_000)
+      : null
 
     const poll = setInterval(() => {
       polls++
