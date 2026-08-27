@@ -1,67 +1,42 @@
 <title>Agentic IDE Build Plan</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 
 <style>
+/* Neutral throughout: no hue anywhere. Emphasis is carried by value and weight,
+   which keeps severity legible without introducing a second colour system. */
 :root{
-  --ground:#EEF1F4;
+  --ground:#F1F1EF;
   --surface:#FFFFFF;
-  --surface-sunk:#E5EAEE;
-  --ink:#0F161C;
-  --ink-mid:#3D4B57;
-  --ink-mute:#66757F;
-  --line:#D3DCE2;
-  --line-soft:#E2E8ED;
-  --accent:#0B6E75;
-  --accent-ink:#075158;
-  --accent-soft:#DBEBEC;
-  --ok:#2C7A4E;
-  --ok-soft:#DCEDE3;
-  --warn:#8F5E06;
-  --warn-soft:#F2E8D5;
-  --stop:#A93A2C;
-  --stop-soft:#F3DFDC;
-  --shadow:0 1px 2px rgba(15,22,28,.05), 0 8px 24px -18px rgba(15,22,28,.35);
+  --surface-sunk:#E9E9E6;
+  --ink:#171715;
+  --ink-mid:#45453F;
+  --ink-mute:#70706A;
+  --line:#D5D5D0;
+  --line-soft:#E4E4E0;
+  --shadow:0 1px 2px rgba(20,20,18,.05), 0 8px 24px -18px rgba(20,20,18,.30);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --ground:#0C1114;
-    --surface:#151D22;
-    --surface-sunk:#101519;
-    --ink:#E3EAEE;
-    --ink-mid:#B4C2CB;
-    --ink-mute:#8697A2;
-    --line:#26323A;
-    --line-soft:#1E272E;
-    --accent:#57C6CB;
-    --accent-ink:#8BDEE1;
-    --accent-soft:#123236;
-    --ok:#6BC48D;
-    --ok-soft:#15291E;
-    --warn:#D6A44F;
-    --warn-soft:#2A2317;
-    --stop:#E4867A;
-    --stop-soft:#2C1B19;
+    --ground:#121211;
+    --surface:#1C1C1A;
+    --surface-sunk:#161614;
+    --ink:#EDEDEA;
+    --ink-mid:#C1C1BB;
+    --ink-mute:#8D8D86;
+    --line:#30302C;
+    --line-soft:#252523;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
   }
 }
 :root[data-theme="dark"]{
-  --ground:#0C1114;
-  --surface:#151D22;
-  --surface-sunk:#101519;
-  --ink:#E3EAEE;
-  --ink-mid:#B4C2CB;
-  --ink-mute:#8697A2;
-  --line:#26323A;
-  --line-soft:#1E272E;
-  --accent:#57C6CB;
-  --accent-ink:#8BDEE1;
-  --accent-soft:#123236;
-  --ok:#6BC48D;
-  --ok-soft:#15291E;
-  --warn:#D6A44F;
-  --warn-soft:#2A2317;
-  --stop:#E4867A;
-  --stop-soft:#2C1B19;
+  --ground:#121211;
+  --surface:#1C1C1A;
+  --surface-sunk:#161614;
+  --ink:#EDEDEA;
+  --ink-mid:#C1C1BB;
+  --ink-mute:#8D8D86;
+  --line:#30302C;
+  --line-soft:#252523;
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
 }
 
@@ -70,18 +45,18 @@
 body{
   background:var(--ground);
   color:var(--ink);
-  font-family:"Source Serif 4","Iowan Old Style",Georgia,serif;
-  font-size:17px;
+  font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  font-size:16.5px;
   line-height:1.62;
   -webkit-font-smoothing:antialiased;
 }
-a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid var(--accent-soft)}
-a:hover{border-bottom-color:var(--accent)}
-:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+a{color:var(--ink);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px;text-decoration-color:var(--line)}
+a:hover{text-decoration-color:var(--ink)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:2px}
 
 code{
-  font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;
-  font-size:.82em;
+  font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  font-size:.84em;
   background:var(--surface-sunk);
   border:1px solid var(--line-soft);
   border-radius:3px;
@@ -89,71 +64,74 @@ code{
   color:var(--ink-mid);
 }
 
-/* ---------- shell ---------- */
+/* ---------- shell ----------
+   The measure is set once, by the content column. Nothing inside sets its own
+   max-width, so every paragraph, list and callout shares one right edge. */
 .shell{
-  max-width:1180px;
+  max-width:1042px;
   margin:0 auto;
   padding:0 28px 120px;
   display:grid;
-  grid-template-columns:186px minmax(0,1fr);
-  gap:0 64px;
+  grid-template-columns:168px minmax(0,1fr);
+  gap:0 58px;
   align-items:start;
 }
 .rail{
   position:sticky;
   top:0;
-  padding:40px 0;
+  padding:44px 0;
   max-height:100vh;
   overflow-y:auto;
   display:flex;
   flex-direction:column;
-  gap:2px;
+  gap:1px;
 }
 .rail-title{
-  font-family:"JetBrains Mono",monospace;
+  font-family:"IBM Plex Mono",monospace;
   font-size:10px;
-  letter-spacing:.16em;
+  font-weight:500;
+  letter-spacing:.15em;
   text-transform:uppercase;
   color:var(--ink-mute);
-  padding:0 0 10px 12px;
+  padding:0 0 12px 12px;
 }
 .rail a{
-  font-family:"JetBrains Mono",monospace;
+  font-family:"IBM Plex Mono",monospace;
   font-size:11.5px;
-  line-height:1.35;
+  line-height:1.4;
   color:var(--ink-mute);
-  border-bottom:0;
+  text-decoration:none;
   padding:5px 10px;
   border-left:2px solid transparent;
   display:flex;
   gap:9px;
   transition:color .15s ease,border-color .15s ease;
 }
-.rail a .n{opacity:.55;min-width:20px}
+.rail a .n{opacity:.5;min-width:20px}
 .rail a:hover{color:var(--ink)}
-.rail a.on{color:var(--accent-ink);border-left-color:var(--accent)}
-.rail a.on .n{opacity:1;color:var(--accent)}
+.rail a.on{color:var(--ink);border-left-color:var(--ink);font-weight:500}
+.rail a.on .n{opacity:1}
 .rail .sep{height:14px}
-@media (max-width:940px){
+@media (max-width:900px){
   .shell{grid-template-columns:minmax(0,1fr)}
   .rail{display:none}
 }
 
 .doc{
-  max-width:70ch;
-  padding:40px 0 0;
+  padding:44px 0 0;
   display:flex;
   flex-direction:column;
-  gap:52px;
+  gap:48px;
 }
 
 /* ---------- masthead ---------- */
-.mast{display:flex;flex-direction:column;gap:18px;padding-bottom:34px;border-bottom:1px solid var(--line)}
+.mast{display:flex;flex-direction:column;gap:16px;padding-bottom:32px;border-bottom:1px solid var(--line)}
 .mast-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .tag{
-  font-family:"JetBrains Mono",monospace;
+  font-family:"IBM Plex Mono",monospace;
   font-size:10.5px;
-  letter-spacing:.12em;
+  font-weight:500;
+  letter-spacing:.11em;
   text-transform:uppercase;
   padding:4px 9px;
   border-radius:3px;
@@ -161,54 +139,117 @@ code{
   color:var(--ink-mute);
   background:var(--surface);
 }
-.tag.v{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+.tag.v{background:var(--ink);border-color:var(--ink);color:var(--ground)}
 h1{
-  font-family:"Archivo","Helvetica Neue",Arial,sans-serif;
   font-weight:700;
-  font-size:clamp(2.1rem,5.2vw,3.05rem);
-  line-height:1.03;
-  letter-spacing:-.026em;
+  font-size:clamp(2rem,4.6vw,2.7rem);
+  line-height:1.08;
+  letter-spacing:-.022em;
   text-wrap:balance;
 }
-.deck{font-size:1.08rem;color:var(--ink-mid);max-width:58ch}
+.deck{font-size:1.06rem;color:var(--ink-mid)}
 
 /* ---------- sections ---------- */
-section{display:flex;flex-direction:column;gap:1.05rem;scroll-margin-top:24px}
-.head{display:flex;flex-direction:column;gap:9px}
+section{display:flex;flex-direction:column;gap:1rem;scroll-margin-top:24px}
+.head{display:flex;flex-direction:column;gap:8px}
 .eyebrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .num{
-  font-family:"JetBrains Mono",monospace;
+  font-family:"IBM Plex Mono",monospace;
   font-size:11px;
   font-weight:500;
   letter-spacing:.1em;
-  color:var(--accent);
+  color:var(--ink-mute);
 }
 h2{
-  font-family:"Archivo",Arial,sans-serif;
   font-weight:600;
-  font-size:1.62rem;
-  line-height:1.18;
-  letter-spacing:-.018em;
+  font-size:1.5rem;
+  line-height:1.24;
+  letter-spacing:-.015em;
   text-wrap:balance;
 }
 h3{
-  font-family:"Archivo",Arial,sans-serif;
   font-weight:600;
-  font-size:1.06rem;
-  letter-spacing:-.005em;
-  padding-top:.5rem;
+  font-size:1.04rem;
+  letter-spacing:-.004em;
+  padding-top:.55rem;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
 }
-p{max-width:68ch}
 strong{font-weight:600;color:var(--ink)}
 
-ul,ol{display:flex;flex-direction:column;gap:.44rem;padding-left:1.2rem;max-width:68ch}
+ul,ol{display:flex;flex-direction:column;gap:.42rem;padding-left:1.15rem}
 li::marker{color:var(--ink-mute);font-size:.85em}
+ol li::marker{font-family:"IBM Plex Mono",monospace;font-size:.8em}
 
-/* ---------- callouts ---------- */
+/* ---------- chips ---------- */
+.chip{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:9.5px;
+  font-weight:500;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  padding:3px 7px;
+  border-radius:3px;
+  white-space:nowrap;
+  border:1px solid transparent;
+}
+.chip.new{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.chip.fix{background:transparent;color:var(--ink);border-color:var(--ink);font-weight:600}
+.chip.rev{background:transparent;color:var(--ink-mid);border-color:var(--line)}
+.chip.keep{background:var(--surface-sunk);color:var(--ink-mute)}
+
+/* ---------- changelog ---------- */
+.changelog{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:6px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  gap:0;
+}
+.changelog h2{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:.72rem;
+  font-weight:500;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-mute);
+  padding:13px 20px;
+  border-bottom:1px solid var(--line-soft);
+  background:var(--surface-sunk);
+}
+.cl-row{
+  display:grid;
+  grid-template-columns:96px minmax(0,1fr);
+  gap:18px;
+  padding:14px 20px;
+  border-bottom:1px solid var(--line-soft);
+  font-size:.95rem;
+  align-items:start;
+}
+.cl-row:last-child{border-bottom:0}
+.cl-row .where{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:10.5px;
+  color:var(--ink-mute);
+  text-decoration:none;
+  letter-spacing:.03em;
+  padding-top:.24rem;
+}
+.cl-row .where:hover{color:var(--ink);text-decoration:underline}
+@media (max-width:560px){
+  .cl-row{grid-template-columns:1fr;gap:5px}
+  .cl-row .where{padding-top:0}
+}
+
+/* ---------- callouts ----------
+   Severity by value, not hue: the heavier the left rule, the harder the note. */
 .note{
   background:var(--surface);
   border:1px solid var(--line);
-  border-left:3px solid var(--accent);
+  border-left:3px solid var(--ink-mid);
   border-radius:0 6px 6px 0;
   padding:16px 20px;
   display:flex;
@@ -216,17 +257,73 @@ li::marker{color:var(--ink-mute);font-size:.85em}
   gap:.6rem;
 }
 .note .label{
-  font-family:"JetBrains Mono",monospace;
+  font-family:"IBM Plex Mono",monospace;
   font-size:10px;
-  letter-spacing:.15em;
+  font-weight:500;
+  letter-spacing:.14em;
   text-transform:uppercase;
-  color:var(--accent);
+  color:var(--ink-mute);
 }
-.note p{font-size:.97rem;max-width:64ch}
-.note.stop{border-left-color:var(--stop)}
-.note.stop .label{color:var(--stop)}
-.note.warn{border-left-color:var(--warn)}
-.note.warn .label{color:var(--warn)}
+.note p,.note li{font-size:.96rem}
+.note.stop{border-left-color:var(--ink);border-left-width:4px}
+.note.stop .label{color:var(--ink)}
+.note.warn{border-left-color:var(--ink-mute)}
+
+/* ---------- tables ---------- */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:480px}
+th{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:10px;
+  font-weight:500;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--ink-mute);
+  text-align:left;
+  padding:11px 16px;
+  background:var(--surface-sunk);
+  border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+td{padding:12px 16px;border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--ink-mid)}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--ink);font-weight:600}
+.pill{
+  display:inline-block;
+  font-family:"IBM Plex Mono",monospace;
+  font-size:10px;
+  font-weight:500;
+  letter-spacing:.05em;
+  padding:2px 8px;
+  border-radius:10px;
+  white-space:nowrap;
+  border:1px solid var(--line);
+  color:var(--ink-mute);
+}
+.pill.hi{background:var(--ink);border-color:var(--ink);color:var(--ground)}
+.pill.med{background:var(--surface-sunk);border-color:var(--line);color:var(--ink-mid)}
+.pill.ok{background:transparent;border-color:var(--ink-mute);color:var(--ink-mid)}
+.pill.stop{background:var(--ink);border-color:var(--ink);color:var(--ground)}
+
+/* ---------- staged lists ---------- */
+.pipe{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.stage{
+  display:grid;
+  grid-template-columns:24px 128px minmax(0,1fr);
+  gap:14px;
+  align-items:start;
+  padding:13px 18px;
+  border-bottom:1px solid var(--line-soft);
+  font-size:.93rem;
+}
+.stage:last-child{border-bottom:0}
+.stage .i{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-mute);padding-top:.18rem}
+.stage .who{font-weight:600;font-size:.9rem;color:var(--ink)}
+.stage .what{color:var(--ink-mid)}
+@media (max-width:560px){
+  .stage{grid-template-columns:24px minmax(0,1fr);row-gap:3px}
+  .stage .what{grid-column:2}
+}
 
 /* ---------- milestone cards ---------- */
 .ms{
@@ -243,110 +340,32 @@ li::marker{color:var(--ink-mute);font-size:.85em}
   display:grid;
   grid-template-columns:auto minmax(0,1fr) auto auto;
   gap:12px;
-  align-items:baseline;
-  padding:15px 20px;
+  align-items:center;
+  padding:14px 20px;
   background:var(--surface-sunk);
   border-bottom:1px solid var(--line);
 }
 .ms-id{
-  font-family:"JetBrains Mono",monospace;
+  font-family:"IBM Plex Mono",monospace;
   font-size:12px;
-  font-weight:700;
-  letter-spacing:.06em;
-  color:var(--accent);
-}
-.ms-name{
-  font-family:"Archivo",Arial,sans-serif;
   font-weight:600;
-  font-size:1.08rem;
-  letter-spacing:-.01em;
+  letter-spacing:.05em;
   color:var(--ink);
-  line-height:1.25;
 }
+.ms-name{font-weight:600;font-size:1.05rem;letter-spacing:-.008em;color:var(--ink);line-height:1.3}
 .ms-dur{
-  font-family:"JetBrains Mono",monospace;
+  font-family:"IBM Plex Mono",monospace;
   font-size:10px;
-  letter-spacing:.1em;
+  letter-spacing:.09em;
   text-transform:uppercase;
   color:var(--ink-mute);
   white-space:nowrap;
 }
-.ms-body{padding:18px 20px;display:flex;flex-direction:column;gap:.9rem}
-.ms-body p{font-size:.97rem;max-width:64ch}
-.ms-body ul{font-size:.95rem;gap:.34rem}
-.derisk{
-  display:flex;
-  gap:10px;
-  font-size:.9rem;
-  color:var(--ink-mid);
-  padding:10px 13px;
-  background:var(--accent-soft);
-  border-radius:4px;
-  max-width:none;
-}
-.derisk .k{
-  font-family:"JetBrains Mono",monospace;
-  font-size:9.5px;
-  letter-spacing:.13em;
-  text-transform:uppercase;
-  color:var(--accent-ink);
-  padding-top:.28rem;
-  white-space:nowrap;
-}
-.sub{
-  font-family:"JetBrains Mono",monospace;
-  font-size:9.5px;
-  letter-spacing:.14em;
-  text-transform:uppercase;
-  color:var(--ink-mute);
-}
-.crit{list-style:none;padding-left:0;gap:.5rem}
-.crit li{
-  display:grid;
-  grid-template-columns:16px minmax(0,1fr);
-  gap:10px;
-  font-size:.95rem;
-  color:var(--ink-mid);
-  align-items:start;
-}
-.crit li::before{
-  content:"";
-  display:block;
-  width:12px;height:12px;
-  margin-top:.36rem;
-  border:1.5px solid var(--line);
-  border-radius:2px;
-  font-family:"JetBrains Mono",monospace;
-  font-size:9px;
-  line-height:9px;
-  text-align:center;
-}
-/* Done: filled, ticked, and the text steps back so open work reads first. */
-.crit li.done::before{
-  content:"¹3";
-  border-color:var(--accent);
-  background:var(--accent);
-  color:var(--surface);
-  font-weight:700;
-}
-.crit li.done{color:var(--ink-mute)}
-/* Partial: real work landed, but the criterion as written is not met yet. */
-.crit li.partial::before{
-  border-color:var(--accent);
-  background:linear-gradient(135deg,var(--accent) 0 50%,transparent 50% 100%);
-}
-.crit li .why{
-  display:block;
-  font-size:.85rem;
-  color:var(--ink-mute);
-  margin-top:1px;
-}
-
-/* Milestone progress, shown where the duration already is. */
 .ms-state{
-  font-family:"JetBrains Mono",monospace;
+  font-family:"IBM Plex Mono",monospace;
   font-size:9.5px;
-  letter-spacing:.11em;
+  font-weight:500;
+  letter-spacing:.1em;
   text-transform:uppercase;
   padding:3px 8px;
   border-radius:10px;
@@ -355,71 +374,105 @@ li::marker{color:var(--ink-mute);font-size:.85em}
   border:1px solid var(--line);
   color:var(--ink-mute);
 }
-.ms-state.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
-.ms-state.done{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.ms-state.active{background:var(--ink);border-color:var(--ink);color:var(--ground)}
+.ms-body{padding:18px 20px;display:flex;flex-direction:column;gap:.9rem}
+.ms-body p,.ms-body li{font-size:.96rem}
+.derisk{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  gap:12px;
+  align-items:start;
+  font-size:.9rem;
+  color:var(--ink-mid);
+  padding:11px 14px;
+  background:var(--surface-sunk);
+  border-radius:4px;
+}
+.derisk .k{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:9.5px;
+  font-weight:500;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--ink-mute);
+  white-space:nowrap;
+  padding-top:.22rem;
+}
+.sub{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:9.5px;
+  font-weight:500;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  color:var(--ink-mute);
+}
+
+/* ---------- checklists ----------
+   Two states only. A box is filled or it is not. */
+.crit{list-style:none;padding-left:0;gap:.5rem}
+.crit li{
+  display:grid;
+  grid-template-columns:15px minmax(0,1fr);
+  gap:11px;
+  font-size:.96rem;
+  color:var(--ink-mid);
+  align-items:start;
+}
+.crit li::before{
+  content:"";
+  display:block;
+  width:13px;
+  height:13px;
+  margin-top:.35rem;
+  border:1.5px solid var(--line);
+  border-radius:3px;
+  font-family:"IBM Plex Mono",monospace;
+  font-size:10px;
+  font-weight:600;
+  line-height:10px;
+  text-align:center;
+}
+.crit li.done::before{
+  content:"\2713";
+  border-color:var(--ink);
+  background:var(--ink);
+  color:var(--surface);
+}
+.crit li.done{color:var(--ink-mute)}
 
 .legend{
   display:flex;
   flex-wrap:wrap;
-  gap:18px;
-  font-family:"JetBrains Mono",monospace;
+  gap:20px;
+  font-family:"IBM Plex Mono",monospace;
   font-size:10px;
+  font-weight:500;
   letter-spacing:.09em;
   text-transform:uppercase;
   color:var(--ink-mute);
 }
 .legend span{display:flex;align-items:center;gap:7px}
-.legend i{
-  width:12px;height:12px;
-  border:1.5px solid var(--line);
-  border-radius:2px;
-  display:block;
-}
-.legend i.d{border-color:var(--accent);background:var(--accent)}
-.legend i.p{border-color:var(--accent);background:linear-gradient(135deg,var(--accent) 0 50%,transparent 50% 100%)}
-@media (max-width:560px){
-  .ms-head{grid-template-columns:auto minmax(0,1fr);row-gap:4px}
-  .ms-dur,.ms-state{grid-column:2}
-}
+.legend i{width:13px;height:13px;border:1.5px solid var(--line);border-radius:3px;display:block}
+.legend i.d{border-color:var(--ink);background:var(--ink)}
 
-/* ---------- tables ---------- */
-.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
-table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:520px}
-th{
-  font-family:"JetBrains Mono",monospace;
-  font-size:10px;
-  font-weight:500;
-  letter-spacing:.13em;
-  text-transform:uppercase;
-  color:var(--ink-mute);
-  text-align:left;
-  padding:11px 16px;
-  background:var(--surface-sunk);
-  border-bottom:1px solid var(--line);
-  white-space:nowrap;
-}
-td{padding:12px 16px;border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--ink-mid)}
-tr:last-child td{border-bottom:0}
-td:first-child{color:var(--ink);font-weight:600}
-.pill{
-  display:inline-block;
-  font-family:"JetBrains Mono",monospace;
-  font-size:10px;
-  letter-spacing:.06em;
-  padding:2px 8px;
-  border-radius:10px;
-  white-space:nowrap;
-}
-.pill.hi{background:var(--stop-soft);color:var(--stop)}
-.pill.med{background:var(--warn-soft);color:var(--warn)}
-.pill.ok{background:var(--ok-soft);color:var(--ok)}
+/* ---------- open questions ---------- */
+.qlist{display:flex;flex-direction:column}
+.q{display:flex;flex-direction:column;gap:.28rem;padding:15px 0;border-bottom:1px solid var(--line-soft)}
+.q:first-child{padding-top:0}
+.q:last-child{border-bottom:0}
+.q .qq{font-weight:600;color:var(--ink);font-size:1rem}
+.q .qa{font-size:.95rem;color:var(--ink-mid)}
+.q .st{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mute)}
+.q .st.closed{color:var(--ink)}
+.q .st.open{color:var(--ink-mid)}
+.q .st.def{color:var(--ink-mute)}
 
 footer{
-  font-family:"JetBrains Mono",monospace;
+  font-family:"IBM Plex Mono",monospace;
   font-size:11px;
   color:var(--ink-mute);
   line-height:1.75;
-  padding-top:28px;
+  padding-top:26px;
   border-top:1px solid var(--line);
 }
 </style>
@@ -457,8 +510,7 @@ footer{
       <p class="deck">Nine milestones from empty repo to a merged PR, ordered by risk rather than by feature. Each one ends in something you can run and a claim you can falsify. Scope is fixed by §11 of the spec: one repo, one ticket at a time, three fixed roles.</p>
       <div class="legend">
         <span><i class="d"></i>Done</span>
-        <span><i class="p"></i>Partly done</span>
-        <span><i></i>Not started</span>
+        <span><i></i>Not done</span>
       </div>
     </header>
 
@@ -498,13 +550,13 @@ footer{
     </section>
 
     <article class="ms" id="m0">
-      <div class="ms-head"><span class="ms-id">M0</span><span class="ms-name">Ground truth on Windows</span><span class="ms-dur">1 week</span><span class="ms-state active">4 of 6</span></div>
+      <div class="ms-head"><span class="ms-id">M0</span><span class="ms-name">Ground truth on Windows</span><span class="ms-dur">1 week</span><span class="ms-state active">3 of 6</span></div>
       <div class="ms-body">
         <p>No AI. No agents. No model calls. Prove the substrate everything else stands on.</p>
         <div class="derisk"><span class="k">De-risks</span><span>The entire product. Every later milestone assumes WSL2, Docker and worktrees behave. If they don't, you want to know in week one, not week eight.</span></div>
         <span class="sub">Build</span>
         <ul class="crit">
-          <li class="partial">Electron shell, Windows installer<span class="why">Shell runs. Installer not packaged yet.</span></li>
+          <li>Electron shell, Windows installer</li>
           <li class="done">WSL2 and Docker Desktop detection, with versions and a guided install path for what's missing</li>
           <li class="done">Clone a repo into the WSL2 filesystem from the Windows UI</li>
           <li class="done"><code>git worktree add</code> driven from the Windows side, with <code>core.longpaths</code> and <code>core.autocrlf</code> set</li>
@@ -514,9 +566,9 @@ footer{
         <span class="sub">Exit criteria</span>
         <ul class="crit">
           <li>Clean Windows machine to running preview with no terminal, ever</li>
-          <li class="partial">One button yields a branch, two containers and a URL that renders<span class="why">Branch and worktree yes. Containers and preview URL not built.</span></li>
-          <li class="partial">Teardown removes branch, containers and worktree, leaving nothing behind<span class="why">Worktree, branch and git admin records verified clean. Containers pending.</span></li>
-          <li class="partial">Cold-start time measured and written down — it becomes the number you defend<span class="why">Probe, clone and worktree measured. Preview cold-start pending.</span></li>
+          <li>One button yields a branch, two containers and a URL that renders</li>
+          <li>Teardown removes branch, containers and worktree, leaving nothing behind</li>
+          <li>Cold-start time measured and written down — it becomes the number you defend</li>
         </ul>
         <div class="note">
           <span class="label">Measured &#183; 27 Aug 2026</span>
