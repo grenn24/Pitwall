@@ -9,3 +9,4 @@ dist/
 !.env.example
 *.tsbuildinfo
 release/
+__pycache__/
