@@ -241,8 +241,8 @@ li::marker{color:var(--ink-mute);font-size:.85em}
 }
 .ms-head{
   display:grid;
-  grid-template-columns:auto minmax(0,1fr) auto;
-  gap:14px;
+  grid-template-columns:auto minmax(0,1fr) auto auto;
+  gap:12px;
   align-items:baseline;
   padding:15px 20px;
   background:var(--surface-sunk);
@@ -311,14 +311,75 @@ li::marker{color:var(--ink-mute);font-size:.85em}
 }
 .crit li::before{
   content:"";
-  width:10px;height:10px;
-  margin-top:.42rem;
-  border:1.5px solid var(--accent);
+  display:block;
+  width:12px;height:12px;
+  margin-top:.36rem;
+  border:1.5px solid var(--line);
   border-radius:2px;
+  font-family:"JetBrains Mono",monospace;
+  font-size:9px;
+  line-height:9px;
+  text-align:center;
 }
+/* Done: filled, ticked, and the text steps back so open work reads first. */
+.crit li.done::before{
+  content:"¹3";
+  border-color:var(--accent);
+  background:var(--accent);
+  color:var(--surface);
+  font-weight:700;
+}
+.crit li.done{color:var(--ink-mute)}
+/* Partial: real work landed, but the criterion as written is not met yet. */
+.crit li.partial::before{
+  border-color:var(--accent);
+  background:linear-gradient(135deg,var(--accent) 0 50%,transparent 50% 100%);
+}
+.crit li .why{
+  display:block;
+  font-size:.85rem;
+  color:var(--ink-mute);
+  margin-top:1px;
+}
+
+/* Milestone progress, shown where the duration already is. */
+.ms-state{
+  font-family:"JetBrains Mono",monospace;
+  font-size:9.5px;
+  letter-spacing:.11em;
+  text-transform:uppercase;
+  padding:3px 8px;
+  border-radius:10px;
+  white-space:nowrap;
+  background:var(--surface);
+  border:1px solid var(--line);
+  color:var(--ink-mute);
+}
+.ms-state.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+.ms-state.done{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+
+.legend{
+  display:flex;
+  flex-wrap:wrap;
+  gap:18px;
+  font-family:"JetBrains Mono",monospace;
+  font-size:10px;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  color:var(--ink-mute);
+}
+.legend span{display:flex;align-items:center;gap:7px}
+.legend i{
+  width:12px;height:12px;
+  border:1.5px solid var(--line);
+  border-radius:2px;
+  display:block;
+}
+.legend i.d{border-color:var(--accent);background:var(--accent)}
+.legend i.p{border-color:var(--accent);background:linear-gradient(135deg,var(--accent) 0 50%,transparent 50% 100%)}
 @media (max-width:560px){
   .ms-head{grid-template-columns:auto minmax(0,1fr);row-gap:4px}
-  .ms-dur{grid-column:2}
+  .ms-dur,.ms-state{grid-column:2}
 }
 
 /* ---------- tables ---------- */
@@ -394,6 +455,11 @@ footer{
       </div>
       <h1>Build Plan</h1>
       <p class="deck">Nine milestones from empty repo to a merged PR, ordered by risk rather than by feature. Each one ends in something you can run and a claim you can falsify. Scope is fixed by §11 of the spec: one repo, one ticket at a time, three fixed roles.</p>
+      <div class="legend">
+        <span><i class="d"></i>Done</span>
+        <span><i class="p"></i>Partly done</span>
+        <span><i></i>Not started</span>
+      </div>
     </header>
 
     <section id="decision">
@@ -432,25 +498,25 @@ footer{
     </section>
 
     <article class="ms" id="m0">
-      <div class="ms-head"><span class="ms-id">M0</span><span class="ms-name">Ground truth on Windows</span><span class="ms-dur">1 week</span></div>
+      <div class="ms-head"><span class="ms-id">M0</span><span class="ms-name">Ground truth on Windows</span><span class="ms-dur">1 week</span><span class="ms-state active">4 of 6</span></div>
       <div class="ms-body">
         <p>No AI. No agents. No model calls. Prove the substrate everything else stands on.</p>
         <div class="derisk"><span class="k">De-risks</span><span>The entire product. Every later milestone assumes WSL2, Docker and worktrees behave. If they don't, you want to know in week one, not week eight.</span></div>
         <span class="sub">Build</span>
-        <ul>
-          <li>Electron shell, Windows installer</li>
-          <li>WSL2 and Docker Desktop detection, with versions and a guided install path for what's missing</li>
-          <li>Clone a repo into the WSL2 filesystem from the Windows UI</li>
-          <li><code>git worktree add</code> driven from the Windows side, with <code>core.longpaths</code> and <code>core.autocrlf</code> set</li>
+        <ul class="crit">
+          <li class="partial">Electron shell, Windows installer<span class="why">Shell runs. Installer not packaged yet.</span></li>
+          <li class="done">WSL2 and Docker Desktop detection, with versions and a guided install path for what's missing</li>
+          <li class="done">Clone a repo into the WSL2 filesystem from the Windows UI</li>
+          <li class="done"><code>git worktree add</code> driven from the Windows side, with <code>core.longpaths</code> and <code>core.autocrlf</code> set</li>
           <li>Postgres container from a seed file, returning a connection string</li>
           <li>App container started, its URL rendered in a BrowserView</li>
         </ul>
         <span class="sub">Exit criteria</span>
         <ul class="crit">
           <li>Clean Windows machine to running preview with no terminal, ever</li>
-          <li>One button yields a branch, two containers and a URL that renders</li>
-          <li>Teardown removes branch, containers and worktree, leaving nothing behind</li>
-          <li>Cold-start time measured and written down — it becomes the number you defend</li>
+          <li class="partial">One button yields a branch, two containers and a URL that renders<span class="why">Branch and worktree yes. Containers and preview URL not built.</span></li>
+          <li class="partial">Teardown removes branch, containers and worktree, leaving nothing behind<span class="why">Worktree, branch and git admin records verified clean. Containers pending.</span></li>
+          <li class="partial">Cold-start time measured and written down — it becomes the number you defend<span class="why">Probe, clone and worktree measured. Preview cold-start pending.</span></li>
         </ul>
         <div class="note">
           <span class="label">Measured &#183; 27 Aug 2026</span>
