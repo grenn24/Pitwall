@@ -42,6 +42,8 @@ export interface CheckResult {
   canFix?: boolean
   /** True when running it will raise a Windows permission prompt. */
   fixElevated?: boolean
+  /** What to show while the fix runs, for commands that print little. */
+  fixWhileRunning?: string
   /** Raw output, kept for the log pane. Never shown by default. */
   raw?: string
 }

@@ -32,6 +32,15 @@ export interface Fix {
   elevated: boolean
   /** What to expect afterwards. */
   afterward?: string
+  /**
+   * What to say while it runs.
+   *
+   * Some of these commands produce almost no output. DISM writes its progress
+   * as a percentage it overwrites in place, never finishing a line, so a
+   * line-oriented capture receives the banner and then silence for minutes.
+   * Saying so is better than an empty box that looks like a hang.
+   */
+  whileRunning?: string
 }
 
 const WINGET_DOCKER = [
@@ -58,6 +67,7 @@ export const FIXES: Record<FixId, Fix> = {
     args: ['--install'],
     elevated: true,
     needsRestart: true,
+    whileRunning: 'Installing the WSL2 platform. This usually takes one to three minutes and prints almost nothing while it works.',
     afterward: 'Installed. Windows has to restart before Pitwall can see it.'
   },
   'wsl-default-v2': {
@@ -80,6 +90,7 @@ export const FIXES: Record<FixId, Fix> = {
     file: 'winget.exe',
     args: WINGET_DOCKER,
     elevated: true,
+    whileRunning: 'Downloading and installing Docker Desktop. This is a large download and can take several minutes.',
     afterward:
       'Docker Desktop is installed. Start it, and if it does not pick up your distribution automatically, enable it under Settings → Resources → WSL Integration.'
   },

@@ -196,7 +196,9 @@ function annotateFixes(checks: CheckResult[]): CheckResult[] {
   return checks.map((check) => {
     if (check.status === 'ok' || check.status === 'pending') return check
     const fix = fixFor(check.fixId)
-    return fix ? { ...check, command: fix.command, canFix: true, fixElevated: fix.elevated } : check
+    return fix
+      ? { ...check, command: fix.command, canFix: true, fixElevated: fix.elevated, fixWhileRunning: fix.whileRunning }
+      : check
   })
 }
 

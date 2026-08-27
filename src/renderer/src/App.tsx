@@ -114,6 +114,9 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
                   : 'A console window opens showing progress. It closes when the command finishes.'}
               </p>
             )}
+            {fixing && check.fixWhileRunning && (
+              <p className="check__aside">{check.fixWhileRunning}</p>
+            )}
             {fixing && progress && (
               <pre className="fixlog">{progress.split('\n').slice(-6).join('\n')}</pre>
             )}
