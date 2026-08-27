@@ -1,0 +1,726 @@
+<title>Agentic IDE Build Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+
+<style>
+:root{
+  --ground:#EEF1F4;
+  --surface:#FFFFFF;
+  --surface-sunk:#E5EAEE;
+  --ink:#0F161C;
+  --ink-mid:#3D4B57;
+  --ink-mute:#66757F;
+  --line:#D3DCE2;
+  --line-soft:#E2E8ED;
+  --accent:#0B6E75;
+  --accent-ink:#075158;
+  --accent-soft:#DBEBEC;
+  --ok:#2C7A4E;
+  --ok-soft:#DCEDE3;
+  --warn:#8F5E06;
+  --warn-soft:#F2E8D5;
+  --stop:#A93A2C;
+  --stop-soft:#F3DFDC;
+  --shadow:0 1px 2px rgba(15,22,28,.05), 0 8px 24px -18px rgba(15,22,28,.35);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0C1114;
+    --surface:#151D22;
+    --surface-sunk:#101519;
+    --ink:#E3EAEE;
+    --ink-mid:#B4C2CB;
+    --ink-mute:#8697A2;
+    --line:#26323A;
+    --line-soft:#1E272E;
+    --accent:#57C6CB;
+    --accent-ink:#8BDEE1;
+    --accent-soft:#123236;
+    --ok:#6BC48D;
+    --ok-soft:#15291E;
+    --warn:#D6A44F;
+    --warn-soft:#2A2317;
+    --stop:#E4867A;
+    --stop-soft:#2C1B19;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C1114;
+  --surface:#151D22;
+  --surface-sunk:#101519;
+  --ink:#E3EAEE;
+  --ink-mid:#B4C2CB;
+  --ink-mute:#8697A2;
+  --line:#26323A;
+  --line-soft:#1E272E;
+  --accent:#57C6CB;
+  --accent-ink:#8BDEE1;
+  --accent-soft:#123236;
+  --ok:#6BC48D;
+  --ok-soft:#15291E;
+  --warn:#D6A44F;
+  --warn-soft:#2A2317;
+  --stop:#E4867A;
+  --stop-soft:#2C1B19;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"Source Serif 4","Iowan Old Style",Georgia,serif;
+  font-size:17px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid var(--accent-soft)}
+a:hover{border-bottom-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+
+code{
+  font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  font-size:.82em;
+  background:var(--surface-sunk);
+  border:1px solid var(--line-soft);
+  border-radius:3px;
+  padding:.08em .34em;
+  color:var(--ink-mid);
+}
+
+/* ---------- shell ---------- */
+.shell{
+  max-width:1180px;
+  margin:0 auto;
+  padding:0 28px 120px;
+  display:grid;
+  grid-template-columns:186px minmax(0,1fr);
+  gap:0 64px;
+  align-items:start;
+}
+.rail{
+  position:sticky;
+  top:0;
+  padding:40px 0;
+  max-height:100vh;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.rail-title{
+  font-family:"JetBrains Mono",monospace;
+  font-size:10px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--ink-mute);
+  padding:0 0 10px 12px;
+}
+.rail a{
+  font-family:"JetBrains Mono",monospace;
+  font-size:11.5px;
+  line-height:1.35;
+  color:var(--ink-mute);
+  border-bottom:0;
+  padding:5px 10px;
+  border-left:2px solid transparent;
+  display:flex;
+  gap:9px;
+  transition:color .15s ease,border-color .15s ease;
+}
+.rail a .n{opacity:.55;min-width:20px}
+.rail a:hover{color:var(--ink)}
+.rail a.on{color:var(--accent-ink);border-left-color:var(--accent)}
+.rail a.on .n{opacity:1;color:var(--accent)}
+.rail .sep{height:14px}
+@media (max-width:940px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{display:none}
+}
+
+.doc{
+  max-width:70ch;
+  padding:40px 0 0;
+  display:flex;
+  flex-direction:column;
+  gap:52px;
+}
+
+/* ---------- masthead ---------- */
+.mast{display:flex;flex-direction:column;gap:18px;padding-bottom:34px;border-bottom:1px solid var(--line)}
+.mast-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tag{
+  font-family:"JetBrains Mono",monospace;
+  font-size:10.5px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  padding:4px 9px;
+  border-radius:3px;
+  border:1px solid var(--line);
+  color:var(--ink-mute);
+  background:var(--surface);
+}
+.tag.v{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+h1{
+  font-family:"Archivo","Helvetica Neue",Arial,sans-serif;
+  font-weight:700;
+  font-size:clamp(2.1rem,5.2vw,3.05rem);
+  line-height:1.03;
+  letter-spacing:-.026em;
+  text-wrap:balance;
+}
+.deck{font-size:1.08rem;color:var(--ink-mid);max-width:58ch}
+
+/* ---------- sections ---------- */
+section{display:flex;flex-direction:column;gap:1.05rem;scroll-margin-top:24px}
+.head{display:flex;flex-direction:column;gap:9px}
+.eyebrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.num{
+  font-family:"JetBrains Mono",monospace;
+  font-size:11px;
+  font-weight:500;
+  letter-spacing:.1em;
+  color:var(--accent);
+}
+h2{
+  font-family:"Archivo",Arial,sans-serif;
+  font-weight:600;
+  font-size:1.62rem;
+  line-height:1.18;
+  letter-spacing:-.018em;
+  text-wrap:balance;
+}
+h3{
+  font-family:"Archivo",Arial,sans-serif;
+  font-weight:600;
+  font-size:1.06rem;
+  letter-spacing:-.005em;
+  padding-top:.5rem;
+}
+p{max-width:68ch}
+strong{font-weight:600;color:var(--ink)}
+
+ul,ol{display:flex;flex-direction:column;gap:.44rem;padding-left:1.2rem;max-width:68ch}
+li::marker{color:var(--ink-mute);font-size:.85em}
+
+/* ---------- callouts ---------- */
+.note{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-left:3px solid var(--accent);
+  border-radius:0 6px 6px 0;
+  padding:16px 20px;
+  display:flex;
+  flex-direction:column;
+  gap:.6rem;
+}
+.note .label{
+  font-family:"JetBrains Mono",monospace;
+  font-size:10px;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  color:var(--accent);
+}
+.note p{font-size:.97rem;max-width:64ch}
+.note.stop{border-left-color:var(--stop)}
+.note.stop .label{color:var(--stop)}
+.note.warn{border-left-color:var(--warn)}
+.note.warn .label{color:var(--warn)}
+
+/* ---------- milestone cards ---------- */
+.ms{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:6px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  scroll-margin-top:24px;
+}
+.ms-head{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:14px;
+  align-items:baseline;
+  padding:15px 20px;
+  background:var(--surface-sunk);
+  border-bottom:1px solid var(--line);
+}
+.ms-id{
+  font-family:"JetBrains Mono",monospace;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.06em;
+  color:var(--accent);
+}
+.ms-name{
+  font-family:"Archivo",Arial,sans-serif;
+  font-weight:600;
+  font-size:1.08rem;
+  letter-spacing:-.01em;
+  color:var(--ink);
+  line-height:1.25;
+}
+.ms-dur{
+  font-family:"JetBrains Mono",monospace;
+  font-size:10px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--ink-mute);
+  white-space:nowrap;
+}
+.ms-body{padding:18px 20px;display:flex;flex-direction:column;gap:.9rem}
+.ms-body p{font-size:.97rem;max-width:64ch}
+.ms-body ul{font-size:.95rem;gap:.34rem}
+.derisk{
+  display:flex;
+  gap:10px;
+  font-size:.9rem;
+  color:var(--ink-mid);
+  padding:10px 13px;
+  background:var(--accent-soft);
+  border-radius:4px;
+  max-width:none;
+}
+.derisk .k{
+  font-family:"JetBrains Mono",monospace;
+  font-size:9.5px;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  color:var(--accent-ink);
+  padding-top:.28rem;
+  white-space:nowrap;
+}
+.sub{
+  font-family:"JetBrains Mono",monospace;
+  font-size:9.5px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-mute);
+}
+.crit{list-style:none;padding-left:0;gap:.5rem}
+.crit li{
+  display:grid;
+  grid-template-columns:16px minmax(0,1fr);
+  gap:10px;
+  font-size:.95rem;
+  color:var(--ink-mid);
+  align-items:start;
+}
+.crit li::before{
+  content:"";
+  width:10px;height:10px;
+  margin-top:.42rem;
+  border:1.5px solid var(--accent);
+  border-radius:2px;
+}
+@media (max-width:560px){
+  .ms-head{grid-template-columns:auto minmax(0,1fr);row-gap:4px}
+  .ms-dur{grid-column:2}
+}
+
+/* ---------- tables ---------- */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:520px}
+th{
+  font-family:"JetBrains Mono",monospace;
+  font-size:10px;
+  font-weight:500;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  color:var(--ink-mute);
+  text-align:left;
+  padding:11px 16px;
+  background:var(--surface-sunk);
+  border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+td{padding:12px 16px;border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--ink-mid)}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--ink);font-weight:600}
+.pill{
+  display:inline-block;
+  font-family:"JetBrains Mono",monospace;
+  font-size:10px;
+  letter-spacing:.06em;
+  padding:2px 8px;
+  border-radius:10px;
+  white-space:nowrap;
+}
+.pill.hi{background:var(--stop-soft);color:var(--stop)}
+.pill.med{background:var(--warn-soft);color:var(--warn)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+
+footer{
+  font-family:"JetBrains Mono",monospace;
+  font-size:11px;
+  color:var(--ink-mute);
+  line-height:1.75;
+  padding-top:28px;
+  border-top:1px solid var(--line);
+}
+</style>
+
+<div class="shell">
+  <nav class="rail" aria-label="Sections">
+    <div class="rail-title">Build Plan</div>
+    <a href="#decision"><span class="n">—</span>First decision</a>
+    <a href="#shape"><span class="n">—</span>Shape</a>
+    <div class="sep"></div>
+    <a href="#m0"><span class="n">M0</span>Environment</a>
+    <a href="#m1"><span class="n">M1</span>Identity</a>
+    <a href="#m2"><span class="n">M2</span>Run engine</a>
+    <a href="#m3"><span class="n">M3</span>Coder + skills</a>
+    <a href="#m4"><span class="n">M4</span>Tests first</a>
+    <a href="#m5"><span class="n">M5</span>Reviewer</a>
+    <a href="#m6"><span class="n">M6</span>Full team</a>
+    <a href="#m7"><span class="n">M7</span>Review screen</a>
+    <a href="#m8"><span class="n">M8</span>Close the loop</a>
+    <div class="sep"></div>
+    <a href="#order"><span class="n">—</span>Why this order</a>
+    <a href="#risk"><span class="n">—</span>Risks</a>
+    <a href="#cuts"><span class="n">—</span>Cut lines</a>
+  </nav>
+
+  <main class="doc">
+
+    <header class="mast">
+      <div class="mast-meta">
+        <span class="tag v">v0</span>
+        <span class="tag">≈ 11 weeks solo</span>
+        <span class="tag">Windows</span>
+      </div>
+      <h1>Build Plan</h1>
+      <p class="deck">Nine milestones from empty repo to a merged PR, ordered by risk rather than by feature. Each one ends in something you can run and a claim you can falsify. Scope is fixed by §11 of the spec: one repo, one ticket at a time, three fixed roles.</p>
+    </header>
+
+    <section id="decision">
+      <div class="head">
+        <div class="eyebrow"><span class="num">BEFORE M0</span></div>
+        <h2>Settle this before writing anything</h2>
+      </div>
+      <p>The repo lives in the WSL2 filesystem and the containers run in WSL2. So where does the agent process run?</p>
+      <p>If it runs on Windows, every file read, every edit and every <code>git</code> call crosses the WSL boundary. That is the slow path, and it is the same boundary that makes file watching unreliable. If it runs inside WSL2, the Electron UI on Windows becomes a client talking to a headless run engine over a local socket.</p>
+      <div class="note">
+        <span class="label">Recommendation</span>
+        <p>Build the split from day one: <strong>Electron UI on Windows, run engine daemon inside WSL2</strong>, one process boundary between them. Let M0 confirm the performance case, but put the boundary in the architecture immediately.</p>
+        <p>Introducing a process boundary later means touching every call site in the engine. Building against one from the start costs a week now and is the difference between a macOS port later being a packaging job and a rewrite.</p>
+      </div>
+    </section>
+
+    <section id="shape">
+      <div class="head">
+        <div class="eyebrow"><span class="num">SHAPE</span></div>
+        <h2>What gets built</h2>
+      </div>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Component</th><th>Runs in</th><th>Job</th></tr></thead>
+          <tbody>
+            <tr><td>Electron UI</td><td>Windows</td><td>Inbox, ticket editor, review screen, embedded Monaco, preview BrowserView</td></tr>
+            <tr><td>Run engine</td><td>WSL2</td><td>State machine, checkpoints, scheduling, role permission enforcement</td></tr>
+            <tr><td>Agent workers</td><td>WSL2</td><td>Stateless, role-scoped, read the ticket doc and the worktree</td></tr>
+            <tr><td>Ticket store</td><td>WSL2</td><td>SQLite: tickets, run state, checkpoints, cost</td></tr>
+            <tr><td>Ticket doc</td><td>Worktree</td><td>Versioned file. The only channel between roles</td></tr>
+            <tr><td>Containers</td><td>WSL2 / Docker</td><td>One app, one seeded database, per ticket</td></tr>
+            <tr><td>GitHub client</td><td>Either</td><td>Device flow, PR open, squash merge, status read</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <article class="ms" id="m0">
+      <div class="ms-head"><span class="ms-id">M0</span><span class="ms-name">Ground truth on Windows</span><span class="ms-dur">1 week</span></div>
+      <div class="ms-body">
+        <p>No AI. No agents. No model calls. Prove the substrate everything else stands on.</p>
+        <div class="derisk"><span class="k">De-risks</span><span>The entire product. Every later milestone assumes WSL2, Docker and worktrees behave. If they don't, you want to know in week one, not week eight.</span></div>
+        <span class="sub">Build</span>
+        <ul>
+          <li>Electron shell, Windows installer</li>
+          <li>WSL2 and Docker Desktop detection, with versions and a guided install path for what's missing</li>
+          <li>Clone a repo into the WSL2 filesystem from the Windows UI</li>
+          <li><code>git worktree add</code> driven from the Windows side, with <code>core.longpaths</code> and <code>core.autocrlf</code> set</li>
+          <li>Postgres container from a seed file, returning a connection string</li>
+          <li>App container started, its URL rendered in a BrowserView</li>
+        </ul>
+        <span class="sub">Exit criteria</span>
+        <ul class="crit">
+          <li>Clean Windows machine to running preview with no terminal, ever</li>
+          <li>One button yields a branch, two containers and a URL that renders</li>
+          <li>Teardown removes branch, containers and worktree, leaving nothing behind</li>
+          <li>Cold-start time measured and written down — it becomes the number you defend</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="ms" id="m1">
+      <div class="ms-head"><span class="ms-id">M1</span><span class="ms-name">Identity and repo connect</span><span class="ms-dur">4 days</span></div>
+      <div class="ms-body">
+        <div class="derisk"><span class="k">De-risks</span><span>The auth correction in §7. Device flow either gives us the permissions we need with no backend, or it doesn't and the plan changes.</span></div>
+        <span class="sub">Build</span>
+        <ul>
+          <li>GitHub App registered, device flow enabled, no client secret shipped</li>
+          <li>Token stored via Electron <code>safeStorage</code> into Windows Credential Manager, never plaintext on disk</li>
+          <li>Installation and repository listing, pick one, clone</li>
+          <li>Read-only checks and deployments status for a branch</li>
+        </ul>
+        <span class="sub">Exit criteria</span>
+        <ul class="crit">
+          <li>Device flow completes inside the app</li>
+          <li>Token survives a restart; revoking it on GitHub produces a clean re-auth prompt, not a crash</li>
+          <li>Branch status reads back as queued / running / success</li>
+          <li>A repo the App was not granted is invisible, not an error</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="ms" id="m2">
+      <div class="ms-head"><span class="ms-id">M2</span><span class="ms-name">The run engine, with no intelligence in it</span><span class="ms-dur">1 week</span></div>
+      <div class="ms-body">
+        <p>Stub agents that emit canned output. The state machine, the ticket doc and the permission layer all exist and are fully exercised before a single model call.</p>
+        <div class="derisk"><span class="k">De-risks</span><span>Resumability and Rule 4 — the two things that are near-impossible to retrofit, and trivially testable while nothing is stochastic.</span></div>
+        <span class="sub">Build</span>
+        <ul>
+          <li>SQLite store for tickets, run state and checkpoints</li>
+          <li>States and transitions, with a durable checkpoint written at each</li>
+          <li>Ticket doc as a versioned file: append-only, sections owned by role, every write attributed</li>
+          <li><strong>Role permissions enforced at the tool layer</strong>, not in prompts</li>
+        </ul>
+        <span class="sub">Exit criteria</span>
+        <ul class="crit">
+          <li>Kill the app mid-run, reopen it, the run resumes from its checkpoint</li>
+          <li>Sleep the laptop mid-run — same result</li>
+          <li>A stub agent reaching for a tool outside its role is refused by the tool layer</li>
+          <li>The full happy path runs end to end with zero model calls</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="ms" id="m3">
+      <div class="ms-head"><span class="ms-id">M3</span><span class="ms-name">The Coder is real, and skills install</span><span class="ms-dur">1.5 weeks</span></div>
+      <div class="ms-body">
+        <div class="derisk"><span class="k">De-risks</span><span>Cost — the first milestone that spends tokens, and cost per ticket is a number the business model depends on. Also the skill format, which every later role inherits and which is expensive to change once anyone has written one.</span></div>
+        <span class="sub">Build — the agent</span>
+        <ul>
+          <li>Agent loop with role-scoped tools</li>
+          <li>Role loading — instructions, tools, skills, permissions — from the repo directory</li>
+          <li>Commits into the worktree as it works</li>
+          <li>Token and cost instrumentation from the first run</li>
+        </ul>
+        <span class="sub">Build — skill install</span>
+        <ul>
+          <li>Add a skill by <code>owner/repo</code> against the public registry</li>
+          <li>Pre-install review pane: files, scripts, tools referenced, network access requested</li>
+          <li>Vendor into the repo's skills directory and write a lockfile entry — source, ref, content hash</li>
+          <li>Attach to exactly one role at install time</li>
+          <li>Permission check at load: a skill declaring a tool its role lacks warns, and never escalates</li>
+        </ul>
+        <span class="sub">Exit criteria</span>
+        <ul class="crit">
+          <li>A ticket produces a branch with real commits</li>
+          <li>A skill installed from the registry changes the Coder's output — and the same skill attached to another role does not</li>
+          <li>Install produces a reviewable commit; a teammate cloning the repo gets identical agent behaviour</li>
+          <li>A skill whose content hash no longer matches refuses to load rather than loading anyway</li>
+          <li>A skill reaching for a tool outside its role is refused by the M2 tool layer, not by the skill loader</li>
+          <li>Cost per ticket recorded and visible in the UI</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="ms" id="m4">
+      <div class="ms-head"><span class="ms-id">M4</span><span class="ms-name">Tests first, provably</span><span class="ms-dur">4 days</span></div>
+      <div class="ms-body">
+        <div class="derisk"><span class="k">De-risks</span><span>Rule 3, which is easy to claim and easy to fake. If the tests do not fail before implementation, the rule is decorative.</span></div>
+        <span class="sub">Build</span>
+        <ul>
+          <li>Test-writer stage ahead of the Coder in the state machine</li>
+          <li>Test command detection from <code>package.json</code> scripts; otherwise ask once and store it in project config</li>
+          <li>Run in the container, parse exit code and output</li>
+        </ul>
+        <span class="sub">Exit criteria</span>
+        <ul class="crit">
+          <li>On a real ticket: tests exist and <strong>fail</strong> before implementation, pass after</li>
+          <li>A project with a non-standard test command is handled by one question, asked once</li>
+          <li>A test run that crashes the container is reported as a failure, not a hang</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="ms" id="m5">
+      <div class="ms-head"><span class="ms-id">M5</span><span class="ms-name">The Reviewer, with ground truth</span><span class="ms-dur">1 week</span></div>
+      <div class="ms-body">
+        <p>The hardest role to keep honest, and the one the product's credibility rests on.</p>
+        <div class="derisk"><span class="k">De-risks</span><span>Rule 2. A reviewer that reads the diff and agrees is worse than no reviewer, because it manufactures confidence.</span></div>
+        <span class="sub">Build</span>
+        <ul>
+          <li>Run the suite in the container and read the result</li>
+          <li>Playwright against the preview URL: screenshots always, video on failure</li>
+          <li>Judge against the ticket doc, not against the diff</li>
+          <li>Write-code tools absent from the role entirely</li>
+        </ul>
+        <span class="sub">Exit criteria</span>
+        <ul class="crit">
+          <li>The Reviewer catches a deliberately planted bug that survives a diff read but fails in the running app</li>
+          <li>Every verdict cites a test result or a screenshot, never the diff alone</li>
+          <li>The Reviewer cannot edit a file even when instructed to</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="ms" id="m6">
+      <div class="ms-head"><span class="ms-id">M6</span><span class="ms-name">Third role, full pipeline</span><span class="ms-dur">4 days</span></div>
+      <div class="ms-body">
+        <div class="derisk"><span class="k">De-risks</span><span>Rule 1 at full load. Three roles is where a shared document either holds or starts wanting to be a chat.</span></div>
+        <span class="sub">Build</span>
+        <ul>
+          <li>The Designer role</li>
+          <li>Designer overlapped with test-writing, the one genuine within-ticket concurrency</li>
+          <li>Full sequential run across all three</li>
+        </ul>
+        <span class="sub">Exit criteria</span>
+        <ul class="crit">
+          <li>One ticket, three roles, one shared document</li>
+          <li>No message-passing path exists anywhere in the codebase — verified by reading it, not by trusting it</li>
+          <li>The ticket doc alone is enough for a role to start cold</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="ms" id="m7">
+      <div class="ms-head"><span class="ms-id">M7</span><span class="ms-name">The review screen</span><span class="ms-dur">1 week</span></div>
+      <div class="ms-body">
+        <p>Per §1, review is the interface. This milestone is the product's face, and it is the one where design time is not optional.</p>
+        <div class="derisk"><span class="k">De-risks</span><span>Whether the loop feels good. Everything before this can work perfectly and still be unpleasant to sit in front of.</span></div>
+        <span class="sub">Build</span>
+        <ul>
+          <li>Diff, test output, screenshots and ticket doc in one screen</li>
+          <li>Approve, which squash-merges</li>
+          <li>Send back with a comment, which re-enters the state machine at the right state</li>
+        </ul>
+        <span class="sub">Exit criteria</span>
+        <ul class="crit">
+          <li>Send-back loops correctly, and the agent receives the comment through the ticket doc rather than as a message</li>
+          <li>A reviewer screenshot is one click from the diff hunk it relates to</li>
+          <li>Nothing in the screen requires scrolling to discover that the run failed</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="ms" id="m8">
+      <div class="ms-head"><span class="ms-id">M8</span><span class="ms-name">Close the loop</span><span class="ms-dur">3 days</span></div>
+      <div class="ms-body">
+        <div class="derisk"><span class="k">De-risks</span><span>Nothing technical. This is the milestone that makes the other eight demonstrable to someone who is not you.</span></div>
+        <span class="sub">Build</span>
+        <ul>
+          <li>PR opened through the API</li>
+          <li>Squash merge with agent as author and user as co-author trailer</li>
+          <li>Production status read back: Merged → Deploying → Live</li>
+          <li>Full teardown of branch, containers and worktree</li>
+        </ul>
+        <span class="sub">Exit criteria</span>
+        <ul class="crit">
+          <li>§11's "done means" sentence is literally true on a clean machine, timed end to end</li>
+          <li>Branch protection, where it exists, blocks the merge and says why — never bypassed</li>
+          <li><code>git blame</code> on the merged commit names both the agent and the user</li>
+        </ul>
+      </div>
+    </article>
+
+    <section id="order">
+      <div class="head">
+        <div class="eyebrow"><span class="num">ORDER</span></div>
+        <h2>Why this order</h2>
+      </div>
+      <p>Three rules produced the sequence, and each one inverts the instinct to build the interesting part first.</p>
+      <p><strong>Environment before intelligence.</strong> The genuinely novel risk in this product is not the agents — it is running two containers and a git worktree on a Windows laptop through WSL2 without the experience being miserable. M0 answers that in week one, while pivoting is still cheap.</p>
+      <p><strong>Engine before agents.</strong> Checkpointing, permissions and handoff are deterministic problems. Test them against stubs where a failure means a bug, not a bad sample. Once model calls are in the loop, every test is flaky and every diagnosis is a guess.</p>
+      <p><strong>One agent before three.</strong> M3 through M5 add roles one at a time so that when quality drops you know which role did it. Going straight to three means debugging a system where every variable moved at once.</p>
+    </section>
+
+    <section id="risk">
+      <div class="head">
+        <div class="eyebrow"><span class="num">RISKS</span></div>
+        <h2>What could sink this</h2>
+      </div>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+          <tbody>
+            <tr><td>WSL2 makes the loop slow enough to be unpleasant</td><td><span class="pill hi">High</span></td><td>M0 finds out in week one. Fallback is a WSL2-native engine with the Electron UI as a thin client — which is why the boundary goes in from day one</td></tr>
+            <tr><td>No general way to know how to <em>run</em> a user's app</td><td><span class="pill hi">High</span></td><td>v0 requires a compose file, or asks once and remembers. Do not attempt inference — it is a bottomless pit and it fails silently</td></tr>
+            <tr><td>Role permissions enforced in prompts rather than tools</td><td><span class="pill hi">High</span></td><td>Enforced at the tool layer in M2, before any model runs. A prompt-enforced boundary is not a boundary</td></tr>
+            <tr><td>A third-party skill is third-party code, running with a role's tools on a dev machine with a GitHub token in scope</td><td><span class="pill hi">High</span></td><td>Pre-install review, hash pinning, no silent updates, and the M2 tool layer as the actual boundary. Skills add knowledge, never capability. This is the one feature where a bad default lands in someone else's repo</td></tr>
+            <tr><td>Cost per ticket lands somewhere unviable</td><td><span class="pill med">Medium</span></td><td>Instrumented in M3, surfaced in the UI, watched from then on</td></tr>
+            <tr><td>Three roles produce no better result than one</td><td><span class="pill med">Medium</span></td><td>Accepted trade from §11. M3 through M6 add roles one at a time, so the evidence arrives incrementally rather than all at the end</td></tr>
+            <tr><td>Branch protection or CODEOWNERS blocks the merge</td><td><span class="pill med">Medium</span></td><td>Surface the rule and stop. Never bypass — §7 calls this a selling point</td></tr>
+            <tr><td>The estimates</td><td><span class="pill med">Medium</span></td><td>M3, M5 and M7 are the least predictable — two involve model behaviour and one involves taste. The ordering is the plan; the durations are a guess</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="cuts">
+      <div class="head">
+        <div class="eyebrow"><span class="num">CUTS</span></div>
+        <h2>Cut lines, decided in advance</h2>
+      </div>
+      <p>Decide these now, while it is cheap, rather than in week nine when it is emotional.</p>
+      <h3>Cut if late</h3>
+      <ul>
+        <li><strong>The Designer role (M6).</strong> Ship two roles. Coder and Reviewer alone still demonstrate the premise</li>
+        <li><strong>Production status display (M8).</strong> Pleasant, not load-bearing</li>
+        <li><strong>Video on failure (M5).</strong> Screenshots carry most of the value</li>
+        <li><strong>Monaco embedding.</strong> "Open the code directly" can wait for v1</li>
+        <li><strong>Registry install (M3).</strong> Fall back to skills committed by hand — the loader and the per-role scoping are what matter, the fetch is convenience</li>
+      </ul>
+      <h3>Never cut</h3>
+      <ul>
+        <li><strong>Tool-layer permissions (M2).</strong> Retrofitting a security boundary is how you ship one that does not hold</li>
+        <li><strong>Resumability (M2).</strong> A laptop product that loses work on sleep has one bug report, repeated forever</li>
+        <li><strong>Reviewer ground truth (M5).</strong> Without it the product is a diff viewer with extra token spend</li>
+        <li><strong>Tests failing before implementation (M4).</strong> The proof that Rule 3 is real</li>
+      </ul>
+      <div class="note warn">
+        <span class="label">Not in this plan</span>
+        <p>Cross-ticket parallelism, the cloud runner, GitLab, macOS and Linux builds, the team tier, and pricing. All deferred by the spec, and all cheaper to add once the single-ticket loop is solid.</p>
+      </div>
+    </section>
+
+    <footer>
+      Agentic IDE · v0 Build Plan · 27 Aug 2026<br>
+      Scope fixed by Spec v0.2 §11. Section references throughout point at that document.
+    </footer>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.rail a'));
+  var targets = [];
+  links.forEach(function (a) {
+    var el = document.querySelector(a.getAttribute('href'));
+    if (el) targets.push({ el: el, link: a });
+  });
+  if (!targets.length) return;
+
+  function sync() {
+    var current = targets[0];
+    targets.forEach(function (t) {
+      if (t.el.getBoundingClientRect().top <= 140) current = t;
+    });
+    links.forEach(function (a) { a.classList.remove('on'); });
+    current.link.classList.add('on');
+  }
+
+  var ticking = false;
+  window.addEventListener('scroll', function () {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function () { sync(); ticking = false; });
+  }, { passive: true });
+  sync();
+})();
+</script>

@@ -1,0 +1,809 @@
+<title>Agentic IDE Spec v0.2</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+
+<style>
+:root{
+  --ground:#EEF1F4;
+  --surface:#FFFFFF;
+  --surface-sunk:#E5EAEE;
+  --ink:#0F161C;
+  --ink-mid:#3D4B57;
+  --ink-mute:#66757F;
+  --line:#D3DCE2;
+  --line-soft:#E2E8ED;
+  --accent:#0B6E75;
+  --accent-ink:#075158;
+  --accent-soft:#DBEBEC;
+  --ok:#2C7A4E;
+  --ok-soft:#DCEDE3;
+  --warn:#8F5E06;
+  --warn-soft:#F2E8D5;
+  --stop:#A93A2C;
+  --stop-soft:#F3DFDC;
+  --shadow:0 1px 2px rgba(15,22,28,.05), 0 8px 24px -18px rgba(15,22,28,.35);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0C1114;
+    --surface:#151D22;
+    --surface-sunk:#101519;
+    --ink:#E3EAEE;
+    --ink-mid:#B4C2CB;
+    --ink-mute:#8697A2;
+    --line:#26323A;
+    --line-soft:#1E272E;
+    --accent:#57C6CB;
+    --accent-ink:#8BDEE1;
+    --accent-soft:#123236;
+    --ok:#6BC48D;
+    --ok-soft:#15291E;
+    --warn:#D6A44F;
+    --warn-soft:#2A2317;
+    --stop:#E4867A;
+    --stop-soft:#2C1B19;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C1114;
+  --surface:#151D22;
+  --surface-sunk:#101519;
+  --ink:#E3EAEE;
+  --ink-mid:#B4C2CB;
+  --ink-mute:#8697A2;
+  --line:#26323A;
+  --line-soft:#1E272E;
+  --accent:#57C6CB;
+  --accent-ink:#8BDEE1;
+  --accent-soft:#123236;
+  --ok:#6BC48D;
+  --ok-soft:#15291E;
+  --warn:#D6A44F;
+  --warn-soft:#2A2317;
+  --stop:#E4867A;
+  --stop-soft:#2C1B19;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"Source Serif 4","Iowan Old Style",Georgia,serif;
+  font-size:17px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid var(--accent-soft)}
+a:hover{border-bottom-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+
+code{
+  font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  font-size:.82em;
+  background:var(--surface-sunk);
+  border:1px solid var(--line-soft);
+  border-radius:3px;
+  padding:.08em .34em;
+  color:var(--ink-mid);
+}
+
+/* ---------- shell ---------- */
+.shell{
+  max-width:1180px;
+  margin:0 auto;
+  padding:0 28px 120px;
+  display:grid;
+  grid-template-columns:186px minmax(0,1fr);
+  gap:0 64px;
+  align-items:start;
+}
+.rail{
+  position:sticky;
+  top:0;
+  padding:40px 0;
+  max-height:100vh;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.rail-title{
+  font-family:"JetBrains Mono",monospace;
+  font-size:10px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--ink-mute);
+  padding:0 0 10px 12px;
+}
+.rail a{
+  font-family:"JetBrains Mono",monospace;
+  font-size:11.5px;
+  line-height:1.35;
+  color:var(--ink-mute);
+  border-bottom:0;
+  padding:5px 10px;
+  border-left:2px solid transparent;
+  display:flex;
+  gap:9px;
+  transition:color .15s ease,border-color .15s ease;
+}
+.rail a .n{opacity:.55;min-width:16px}
+.rail a:hover{color:var(--ink)}
+.rail a.on{color:var(--accent-ink);border-left-color:var(--accent)}
+.rail a.on .n{opacity:1;color:var(--accent)}
+@media (max-width:940px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{display:none}
+}
+
+.doc{
+  max-width:70ch;
+  padding:40px 0 0;
+  display:flex;
+  flex-direction:column;
+  gap:52px;
+}
+
+/* ---------- masthead ---------- */
+.mast{display:flex;flex-direction:column;gap:18px;padding-bottom:34px;border-bottom:1px solid var(--line)}
+.mast-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tag{
+  font-family:"JetBrains Mono",monospace;
+  font-size:10.5px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  padding:4px 9px;
+  border-radius:3px;
+  border:1px solid var(--line);
+  color:var(--ink-mute);
+  background:var(--surface);
+}
+.tag.v{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+h1{
+  font-family:"Archivo","Helvetica Neue",Arial,sans-serif;
+  font-weight:700;
+  font-size:clamp(2.1rem,5.2vw,3.05rem);
+  line-height:1.03;
+  letter-spacing:-.026em;
+  text-wrap:balance;
+}
+.deck{font-size:1.08rem;color:var(--ink-mid);max-width:58ch}
+
+/* ---------- sections ---------- */
+section{display:flex;flex-direction:column;gap:1.05rem;scroll-margin-top:24px}
+.head{display:flex;flex-direction:column;gap:9px}
+.eyebrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.num{
+  font-family:"JetBrains Mono",monospace;
+  font-size:11px;
+  font-weight:500;
+  letter-spacing:.1em;
+  color:var(--accent);
+}
+h2{
+  font-family:"Archivo",Arial,sans-serif;
+  font-weight:600;
+  font-size:1.62rem;
+  line-height:1.18;
+  letter-spacing:-.018em;
+  text-wrap:balance;
+}
+h3{
+  font-family:"Archivo",Arial,sans-serif;
+  font-weight:600;
+  font-size:1.06rem;
+  letter-spacing:-.005em;
+  padding-top:.5rem;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+p{max-width:68ch}
+strong{font-weight:600;color:var(--ink)}
+
+ul,ol{display:flex;flex-direction:column;gap:.44rem;padding-left:1.2rem;max-width:68ch}
+li::marker{color:var(--ink-mute);font-size:.85em}
+ol li::marker{font-family:"JetBrains Mono",monospace;font-size:.78em;color:var(--accent)}
+
+/* ---------- change chips ---------- */
+.chip{
+  font-family:"JetBrains Mono",monospace;
+  font-size:9.5px;
+  font-weight:500;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  padding:3px 7px;
+  border-radius:3px;
+  white-space:nowrap;
+}
+.chip.new{background:var(--accent-soft);color:var(--accent-ink)}
+.chip.rev{background:var(--warn-soft);color:var(--warn)}
+.chip.keep{background:var(--surface-sunk);color:var(--ink-mute)}
+.chip.fix{background:var(--stop-soft);color:var(--stop)}
+
+/* ---------- changelog ---------- */
+.changelog{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:6px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  gap:0;
+}
+.changelog h2{
+  font-size:.78rem;
+  font-family:"JetBrains Mono",monospace;
+  font-weight:500;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  color:var(--ink-mute);
+  padding:13px 20px;
+  border-bottom:1px solid var(--line-soft);
+  background:var(--surface-sunk);
+}
+.cl-row{
+  display:grid;
+  grid-template-columns:90px minmax(0,1fr);
+  gap:16px;
+  padding:13px 20px;
+  border-bottom:1px solid var(--line-soft);
+  font-size:.95rem;
+  align-items:baseline;
+}
+.cl-row:last-child{border-bottom:0}
+.cl-row .where{
+  font-family:"JetBrains Mono",monospace;
+  font-size:10.5px;
+  color:var(--ink-mute);
+  border-bottom:0;
+  letter-spacing:.04em;
+}
+.cl-row .where:hover{color:var(--accent-ink)}
+@media (max-width:560px){
+  .cl-row{grid-template-columns:1fr;gap:5px}
+}
+
+/* ---------- callouts ---------- */
+.note{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-left:3px solid var(--accent);
+  border-radius:0 6px 6px 0;
+  padding:16px 20px;
+  display:flex;
+  flex-direction:column;
+  gap:.6rem;
+}
+.note .label{
+  font-family:"JetBrains Mono",monospace;
+  font-size:10px;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  color:var(--accent);
+}
+.note p{font-size:.97rem;max-width:64ch}
+.note.stop{border-left-color:var(--stop)}
+.note.stop .label{color:var(--stop)}
+.note.warn{border-left-color:var(--warn)}
+.note.warn .label{color:var(--warn)}
+
+/* ---------- tables ---------- */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:460px}
+th{
+  font-family:"JetBrains Mono",monospace;
+  font-size:10px;
+  font-weight:500;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  color:var(--ink-mute);
+  text-align:left;
+  padding:11px 16px;
+  background:var(--surface-sunk);
+  border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+td{padding:12px 16px;border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--ink-mid)}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--ink);font-weight:600}
+.pill{
+  display:inline-block;
+  font-family:"JetBrains Mono",monospace;
+  font-size:10px;
+  letter-spacing:.06em;
+  padding:2px 8px;
+  border-radius:10px;
+}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.stop{background:var(--stop-soft);color:var(--stop)}
+
+/* ---------- staged list ---------- */
+.pipe{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.stage{
+  display:grid;
+  grid-template-columns:24px 128px minmax(0,1fr);
+  gap:14px;
+  align-items:baseline;
+  padding:12px 18px;
+  border-bottom:1px solid var(--line-soft);
+  font-size:.93rem;
+}
+.stage:last-child{border-bottom:0}
+.stage .i{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--accent)}
+.stage .who{font-family:"Archivo",Arial,sans-serif;font-weight:600;font-size:.9rem;color:var(--ink)}
+.stage .what{color:var(--ink-mid)}
+@media (max-width:560px){
+  .stage{grid-template-columns:24px minmax(0,1fr);row-gap:3px}
+  .stage .what{grid-column:2}
+}
+
+/* ---------- questions ---------- */
+.qlist{display:flex;flex-direction:column}
+.q{display:flex;flex-direction:column;gap:.3rem;padding:15px 0;border-bottom:1px solid var(--line-soft)}
+.q:first-child{padding-top:0}
+.q:last-child{border-bottom:0}
+.q .qq{font-weight:600;color:var(--ink);font-size:1rem}
+.q .qa{font-size:.95rem;color:var(--ink-mid);max-width:64ch}
+.q .st{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.13em;text-transform:uppercase}
+.q .st.closed{color:var(--ok)}
+.q .st.open{color:var(--warn)}
+.q .st.def{color:var(--ink-mute)}
+
+footer{
+  font-family:"JetBrains Mono",monospace;
+  font-size:11px;
+  color:var(--ink-mute);
+  line-height:1.75;
+  padding-top:28px;
+  border-top:1px solid var(--line);
+}
+</style>
+
+<div class="shell">
+  <nav class="rail" aria-label="Sections">
+    <div class="rail-title">Spec v0.2</div>
+    <a href="#changes"><span class="n">—</span>Changes</a>
+    <a href="#s1"><span class="n">01</span>What it is</a>
+    <a href="#s2"><span class="n">02</span>Who it's for</a>
+    <a href="#s3"><span class="n">03</span>Core loop</a>
+    <a href="#s4"><span class="n">04</span>Agents</a>
+    <a href="#s5"><span class="n">05</span>Concurrency</a>
+    <a href="#s6"><span class="n">06</span>Architecture</a>
+    <a href="#s7"><span class="n">07</span>Git &amp; GitHub</a>
+    <a href="#s8"><span class="n">08</span>Deployment</a>
+    <a href="#s9"><span class="n">09</span>UI direction</a>
+    <a href="#s10"><span class="n">10</span>Out of scope</a>
+    <a href="#s11"><span class="n">11</span>v0 scope</a>
+    <a href="#s12"><span class="n">12</span>Open questions</a>
+    
+  </nav>
+
+  <main class="doc">
+
+    <header class="mast">
+      <div class="mast-meta">
+        <span class="tag v">v0.2</span>
+        <span class="tag">27 Aug 2026</span>
+        <span class="tag">Supersedes v0.1</span>
+      </div>
+      <h1>Agentic IDE</h1>
+      <p class="deck">A desktop app for developers who orchestrate AI agents instead of typing most of the code. This revision fixes the MVP target to Windows, settles how agents share state, settles concurrency, and corrects an auth model that could not have shipped as written.</p>
+    </header>
+
+    <section id="changes" class="changelog">
+      <h2>What changed since v0.1</h2>
+      <div class="cl-row"><a class="where" href="#s4">§4 · Rule 1</a><div>Agents share state, they don't message. Restated as an architecture rule with the four artifacts that carry intent, plus a new Rule 4: the run engine owns handoff, not the agents.</div></div>
+      <div class="cl-row"><a class="where" href="#s5">§5 · new</a><div>Concurrency model added. Sequential within a ticket, parallel across tickets, capped at three. Closes the laptop-sleep question.</div></div>
+      <div class="cl-row"><a class="where" href="#s5">§5 · conflicts</a><div>Merge conflicts settled: the orchestrator decides, the AI recommends. Declared file scope prevents most; the rest halt both tickets and wait for a human accept. New terminology split — <strong>orchestrator</strong> is the person, <strong>run engine</strong> is the scheduler.</div></div>
+      <div class="cl-row"><a class="where" href="#s6">§6 · Windows</a><div>MVP platform fixed to Windows. Electron over Tauri. Docker means WSL2, and that is now a first-run feature rather than a footnote.</div></div>
+      <div class="cl-row"><a class="where" href="#s7">§7 · auth</a><div><strong>Correction.</strong> The v0.1 PR flow required a GitHub App private key on the user's machine. It can't ship. Replaced with device flow, and the self-approve step is cut from v0.</div></div>
+      <div class="cl-row"><a class="where" href="#s8">§8 · scope</a><div>"Deploy" split explicitly into local preview deploys (we build) and production status display (we read). No change in direction, just no longer ambiguous.</div></div>
+      <div class="cl-row"><a class="where" href="#s11">§11 · reversed</a><div><strong>v0 ships the three-role team, not one agent.</strong> The role split is architecture rather than a feature, so a single-agent v0 would teach us nothing and then be rewritten. Cross-ticket parallelism is what gets deferred instead.</div></div>
+      <div class="cl-row"><a class="where" href="#s4">§4 · skills</a><div>Skills specified as the per-role extension point. They live in the repo, attach to one role, and cannot widen that role's permissions. Pulled from an existing public registry rather than one we build — vendored, hash-pinned, and reviewed before install.</div></div>
+      <div class="cl-row"><a class="where" href="#s12">§12 · cuts</a><div>The validate-before-building week is removed, and pricing is deferred outright — not a question until the MVP is in someone else's hands.</div></div>
+    </section>
+
+    <section id="s1">
+      <div class="head">
+        <div class="eyebrow"><span class="num">§ 01</span><span class="chip keep">Unchanged</span></div>
+        <h2>What it is</h2>
+      </div>
+      <p>A desktop app for developers who orchestrate AI agents instead of typing most of the code. You write tickets. A team of role-based agents plans, writes tests, writes code, and reviews. You approve or send it back.</p>
+      <p><strong>Not an editor.</strong> It embeds Monaco or CodeMirror. We do not build a text editor, language server, or debugger.</p>
+      <p><strong>Not no-code.</strong> Code is still the artifact. Review is the interface.</p>
+    </section>
+
+    <section id="s2">
+      <div class="head">
+        <div class="eyebrow"><span class="num">§ 02</span><span class="chip keep">Unchanged</span></div>
+        <h2>Who it's for</h2>
+      </div>
+      <p>Individual developers first. They install things themselves, so there is no sales motion to build.</p>
+      <p>The team view — fleet of agents, cost per run, approved capabilities, audit trail — comes later, and is where higher pricing lives.</p>
+    </section>
+
+    <section id="s3">
+      <div class="head">
+        <div class="eyebrow"><span class="num">§ 03</span><span class="chip rev">Revised</span></div>
+        <h2>Core loop</h2>
+      </div>
+      <ol>
+        <li>Connect a repo</li>
+        <li>Pick your agent team (default: 3 agents)</li>
+        <li>Write a ticket</li>
+        <li>Agents produce a plan. The user approves the plan</li>
+        <li>Tests are written <strong>first</strong>, from the ticket</li>
+        <li>Coder writes code on its own branch</li>
+        <li>Preview URL and isolated database spin up</li>
+        <li>Reviewer runs the tests and opens the app</li>
+        <li>User reviews: screenshots, test results, diff</li>
+        <li>Approve → merge. Or send back with a comment</li>
+        <li>Branch, containers and preview are torn down</li>
+      </ol>
+      <p>While a run is going, the user can pause an agent, open and edit the code directly, chat with one agent, or reorder tickets.</p>
+      <div class="note warn">
+        <span class="label">Revised — step 10</span>
+        <p>"Approve" in v0 means <strong>merge from inside the app</strong>, not a GitHub PR approval. The identity trick that made in-app PR approval work in v0.1 needs a backend we are not building yet. See <a href="#s7">§7</a>.</p>
+      </div>
+    </section>
+
+    <section id="s4">
+      <div class="head">
+        <div class="eyebrow"><span class="num">§ 04</span><span class="chip rev">Revised</span></div>
+        <h2>Agents and roles</h2>
+      </div>
+      <p>A <strong>role</strong> is a bundle: instructions, tools, skills, permissions. Ship a predefined set. Users can edit roles and choose how many agents they run.</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Role</th><th>Does</th><th>Cannot</th></tr></thead>
+          <tbody>
+            <tr><td>Designer</td><td>UI decisions, layout, states</td><td>Touch backend</td></tr>
+            <tr><td>Coder</td><td>Implementation</td><td>Approve its own work</td></tr>
+            <tr><td>Reviewer</td><td>Runs tests, opens the app, judges against the ticket</td><td>Write code</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>Do not make people configure a team before their first result.</strong> Ship the default. Let them edit after they have seen it work.</p>
+
+      <h3>Skills — the per-role extension point <span class="chip new">New</span></h3>
+      <p>Of the four things in a role, instructions and permissions are ours and tools are the platform's. <strong>Skills are the developer's.</strong> A skill is a folder of instructions plus optional scripts, loaded on demand by name and description, and it is how a team teaches an agent something we could never ship in the box.</p>
+      <p>Three properties make this work:</p>
+      <div class="pipe">
+        <div class="stage"><span class="i">01</span><span class="who">Per role</span><span class="what">A skill attaches to one role, not to the whole team. Designer gets the design system, Coder gets the repo's migration conventions, Reviewer gets the acceptance checklist. Loading all three into all three is how you get an agent that reviews its own work in its own vocabulary.</span></div>
+        <div class="stage"><span class="i">02</span><span class="who">In the repo</span><span class="what">Skills live in a versioned directory in the project, not in the user's app settings. They ship with the code, review through pull requests, and every teammate gets them by cloning. A skill that lives on one laptop is a private habit, not a team convention.</span></div>
+        <div class="stage"><span class="i">03</span><span class="who">Under permissions</span><span class="what">A skill cannot widen the role that loads it. Give the Designer a database migration skill and it still cannot touch the backend — the tool layer refuses. Skills add knowledge, never capability.</span></div>
+      </div>
+      <h3>Pulling skills from a registry <span class="chip new">New</span></h3>
+      <p>Developers should not have to write every skill themselves, and a public directory of them already exists — <a href="https://www.skills.sh/trending">skills.sh</a> distributes GitHub-backed skills under an <code>owner/repo</code> namespace, installed with <code>npx skills add</code>, across twenty-odd agent platforms.</p>
+      <p><strong>Consume that ecosystem, do not build one.</strong> Same reasoning as keeping GitHub in <a href="#s7">§7</a> and refusing to write an e2e framework in <a href="#s6">§6</a>: a registry is a network-effects business, we would lose it, and the skills we care about are already there.</p>
+      <p>Installing means <strong>vendoring into the repo</strong>, never into a global cache. The skill is copied into the project's skills directory, attached to exactly one role, and pinned in a lockfile by source, ref and content hash. It arrives as a commit.</p>
+      <div class="note">
+        <span class="label">Why vendored and not global</span>
+        <p>A global install breaks the property that makes skills useful in the first place — one developer's Reviewer would behave differently from another's, with nothing in the repo to explain why. Vendored, a skill goes through the team's normal pull request review, CODEOWNERS applies to it, and <code>git log</code> says when the Coder's behaviour changed and who changed it.</p>
+      </div>
+
+      <div class="note stop">
+        <span class="label">Trust is the hard part</span>
+        <p>A skill is instructions plus executable scripts, running with a role's tools, on a developer's machine, in a repo with a GitHub token in scope. Installing a third-party skill is running third-party code, and the instructions half is prompt injection wearing a lower-privilege costume. Four rules, none optional:</p>
+        <ul>
+          <li><strong>Show it before installing.</strong> Files, scripts, tools referenced, network access requested. No blind install</li>
+          <li><strong>Pin to a content hash</strong>, never a moving ref. Updates are a diff someone approves, never silent</li>
+          <li><strong>Permissions still bind.</strong> A skill can never widen the role that loads it. A skill declaring a tool its role lacks is a warning at install time, not an escalation prompt</li>
+          <li><strong>It lands as a commit.</strong> Whatever review the team already applies to code applies to this</li>
+        </ul>
+      </div>
+
+      <div class="note warn">
+        <span class="label">v0 stance</span>
+        <p>v0 ships the mechanism, not the storefront. Add a skill by <code>owner/repo</code> reference, review what is in it, attach it to a role, and it is vendored and locked. Browsing, trending and search inside the app are v1 — they are a UI over the same mechanism, and the mechanism is the part that is expensive to retrofit.</p>
+        <p>There is still no skill <em>editor</em>. Writing one means committing a folder.</p>
+      </div>
+
+      <h3>Rule 1 — Agents share state, they do not message each other</h3>
+      <p>The choice is not "isolated versus communicating." It is <strong>message passing versus shared state</strong>, and we want shared state.</p>
+      <p>Message passing fails because every hop is a paraphrase. Designer summarizes the ticket for Coder, Coder summarizes its work for Reviewer, and by the third hop nobody is reading the original ticket. Errors compound and context grows without bound. Full isolation fails differently: agents duplicate work and make contradictory assumptions with no way to notice.</p>
+      <p>Shared state avoids both, because every agent reads the same ground truth on every turn and nothing is summarized in transit. Communication in this system is four artifacts, not a chat log:</p>
+      <div class="pipe">
+        <div class="stage"><span class="i">01</span><span class="who">Ticket doc</span><span class="what">Spec, constraints, decisions. Append-only, sections owned by role, every write attributed and timestamped.</span></div>
+        <div class="stage"><span class="i">02</span><span class="who">The branch</span><span class="what">The diff is how Coder talks to Reviewer.</span></div>
+        <div class="stage"><span class="i">03</span><span class="who">Test output</span><span class="what">Pass or fail is how Reviewer answers back.</span></div>
+        <div class="stage"><span class="i">04</span><span class="who">The human</span><span class="what">A blocked agent escalates up, never sideways to another agent.</span></div>
+      </div>
+
+      <h3>Rule 2 — The reviewer must act, not read</h3>
+      <p>A reviewer that only reads the diff approves almost anything: same model, same blind spots. It needs independent ground truth — run the test suite, open the running app with Playwright, check against the written ticket.</p>
+
+      <h3>Rule 3 — Tests come before code</h3>
+      <p>If the coder writes code and then tests, the tests describe the bug too. They always pass, and they are useless. Tests are generated from the ticket, before implementation.</p>
+
+      <h3>Rule 4 — The run engine owns handoff <span class="chip new">New</span></h3>
+      <p>Agents do not decide when they are done. Handoff is a state machine transition owned by the run engine — <code>spec_ready → tests_written → code_complete → review_passed</code> — triggered by artifacts existing and checks passing.</p>
+      <div class="note">
+        <span class="label">Why this rule exists</span>
+        <p>If an agent can declare itself finished and summon the next one, you have rebuilt message passing with extra steps, and Rule 1 quietly stops holding.</p>
+      </div>
+      <div class="note">
+        <span class="label">Terminology</span>
+        <p>The <strong>orchestrator</strong> is the person — this is a product for developers who orchestrate agents. The <strong>run engine</strong> is the deterministic scheduler that moves tickets between states and holds no opinions. Keeping the two words apart matters in <a href="#s5">§5</a>, where the orchestrator decides and the run engine only enforces.</p>
+      </div>
+    </section>
+
+    <section id="s5">
+      <div class="head">
+        <div class="eyebrow"><span class="num">§ 05</span><span class="chip new">New section</span></div>
+        <h2>Concurrency model</h2>
+      </div>
+      <p>Sequential and parallel are two different axes. Conflating them is what makes multi-agent setups feel slow and expensive for no gain.</p>
+
+      <h3>Within one ticket: sequential</h3>
+      <p>Tests → code → review is a hard data dependency. You cannot write code against tests that do not exist. Running these stages concurrently means agents idle while they wait, which produces exactly the 3× cost and worse wall-clock time v0.1 predicted. The one genuine overlap is Designer running alongside test-writing, since both consume only the ticket.</p>
+
+      <h3>Across tickets: parallel</h3>
+      <p>This is where the product is. Three tickets, three worktrees, three container pairs, one human reviewing whichever finishes first.</p>
+      <div class="note">
+        <span class="label">Consequence</span>
+        <p>Cross-ticket parallelism is the only reason per-branch isolation needs to exist. With one ticket at a time, the database-per-branch design is dead weight. Build isolation and parallelism together, or neither.</p>
+      </div>
+
+      <h3>The cap</h3>
+      <p><strong>Two to three concurrent tickets.</strong> Each one is two containers plus a language server plus a test runner. Past three, Docker Desktop is eating 12&nbsp;GB and the user blames our app, not their laptop. Show running cost in the UI so the ceiling is legible before it is hit.</p>
+
+      <h3>How to build it</h3>
+      <p>A job queue with stateless workers keyed off a ticket record. Agents hold no memory between turns; everything they know comes from the ticket doc and the worktree. Sequential versus parallel is then a scheduler setting rather than a rewrite — which matters, because v0 ships one agent and this question does not bite until v1.</p>
+
+      <h3>Laptop sleep</h3>
+      <p>Every state machine transition is a durable checkpoint. On sleep the run halts at its last committed checkpoint and the worktree stays on disk; on wake it resumes from there. Nothing is lost, a run just takes longer than the user expected. Say that plainly in the UI rather than pretending the run survived.</p>
+
+      <h3>Merge conflicts between tickets <span class="chip new">Decided</span></h3>
+      <p>Prevention first: each ticket declares its expected file scope during planning, and the run engine refuses to schedule two tickets whose declared scopes overlap, queueing the second instead. That removes most conflicts before they exist.</p>
+      <p>For the ones that still happen, <strong>the orchestrator decides and the AI recommends.</strong> No agent commits a conflict resolution on its own — agents resolving each other's conflicts is Rule 1 violated in the worst possible place.</p>
+      <div class="pipe">
+        <div class="stage"><span class="i">01</span><span class="who">Halt</span><span class="what">The run engine stops both tickets at their last checkpoint. Neither branch advances while the conflict is open.</span></div>
+        <div class="stage"><span class="i">02</span><span class="who">Brief</span><span class="what">Surface the conflicting hunks alongside both ticket docs, so the orchestrator sees the two <em>intents</em>, not just the two diffs.</span></div>
+        <div class="stage"><span class="i">03</span><span class="who">Recommend</span><span class="what">An agent drafts a proposed resolution and states its reasoning. It is a suggestion in the review screen, never a commit.</span></div>
+        <div class="stage"><span class="i">04</span><span class="who">Decide</span><span class="what">The orchestrator accepts, edits, or rejects. Only that decision writes to the branch.</span></div>
+        <div class="stage"><span class="i">05</span><span class="who">Resume</span><span class="what">Both tickets restart from their checkpoints with the resolution applied.</span></div>
+      </div>
+      <p>The recommendation is worth building because the alternative — dumping a raw conflict on the user with no context — is the moment the product stops feeling like it is doing the work. But the accept step is not optional, and it is not a setting.</p>
+    </section>
+
+    <section id="s6">
+      <div class="head">
+        <div class="eyebrow"><span class="num">§ 06</span><span class="chip rev">Revised</span></div>
+        <h2>Architecture decisions</h2>
+      </div>
+
+      <h3>Windows desktop, Electron</h3>
+      <p>The MVP target is a Windows app. Electron over Tauri: Monaco, <code>simple-git</code>, <code>dockerode</code> and <code>node-pty</code> are all Node-native and we will use every one of them. Tauri's smaller binary is not worth rebuilding that layer in Rust.</p>
+
+      <h3>Runs on the user's laptop</h3>
+      <ul>
+        <li>No server bill for us</li>
+        <li>Company code never leaves the machine — a real enterprise selling point</li>
+        <li>Known downside: close the laptop and agents stop (see <a href="#s5">§5</a>)</li>
+        <li>An optional cloud runner is a later addition, same product</li>
+      </ul>
+
+      <h3>Docker on Windows means WSL2</h3>
+      <p>Docker Desktop requires it, and this is the hardest step in onboarding. A repo living on <code>C:\</code> and mounted into a Linux container gets slow filesystem access and unreliable file watching, so hot reload in preview containers will be flaky.</p>
+      <div class="note warn">
+        <span class="label">Decision</span>
+        <p>Agent worktrees are cloned <strong>inside</strong> the WSL2 filesystem, not on the Windows drive. First run detects WSL2 and Docker and walks the user through installing whatever is missing. This is an MVP feature with real UI, not a line in the README.</p>
+      </div>
+      <p>Two more Windows details that will otherwise cost a day each: set <code>core.longpaths</code>, because git worktrees hit the 260-character path limit quickly; and set <code>core.autocrlf</code> explicitly, or every agent diff arrives as pure line-ending noise.</p>
+
+      <h3>Per-branch isolation</h3>
+      <p>Each ticket gets its own git branch, app container, and database container (Docker plus a seed file).</p>
+      <p>Separate databases because parallel agents on a shared one corrupt each other. Agent A adds a column and Agent B's code breaks. Agent B wipes the users table and Agent A's preview goes blank. Docker per branch works with any Postgres or MySQL, so no vendor lock; fast paths for Neon and Supabase branching can come later.</p>
+
+      <h3>Testing</h3>
+      <p>Do not build integrations per framework. <strong>Run whatever test command the project already has.</strong> Jest, Vitest and Playwright all print pass/fail and exit with a code. Read that.</p>
+      <p>Do not build an e2e framework. Playwright and Maestro exist and have years of work in them. What we build is the <strong>viewer</strong>: screenshots, video on failure, and test output in the review screen. Playwright already records all of it.</p>
+    </section>
+
+    <section id="s7">
+      <div class="head">
+        <div class="eyebrow"><span class="num">§ 07</span><span class="chip fix">Corrected</span></div>
+        <h2>Git and GitHub</h2>
+      </div>
+      <p>Keep GitHub and GitLab. They are the standard and teams will not leave them.</p>
+      <ul>
+        <li>One branch per ticket</li>
+        <li>The agent commits as it works</li>
+        <li>On merge, squash into one clean commit named after the ticket — never show the user 30 messy agent commits</li>
+        <li>Author is the agent, co-author is the user, so <code>git blame</code> still means something</li>
+      </ul>
+
+      <div class="note stop">
+        <span class="label">Correction to v0.1</span>
+        <p>v0.1 said we ship a GitHub App that opens the PR while the user approves it with their own account. Minting a GitHub App installation token requires signing a JWT with the App's private key. <strong>That key cannot ship inside a Windows app</strong> — anyone can extract it and gain write access to every repo the App is installed on.</p>
+      </div>
+
+      <h3>The auth model that works with no backend</h3>
+      <p>GitHub App <strong>device flow</strong>. It yields user-to-server tokens with no client secret on the machine. We keep fine-grained per-repo permissions, org admin control over which repos the App can touch, and higher rate limits than a personal token. Through the API we can then open the PR, read the diff, comment on lines, merge, and read CI status.</p>
+      <p>What we lose: the PR is now authored by the user, so the user cannot approve it — same identity, and GitHub forbids self-approval. For v0 that is fine. Drop the approve step and merge directly; approval only matters where branch protection requires it.</p>
+      <p>When the App identity genuinely needs to be the PR author, that is the moment a small token-minting service earns its place. Plan for it, do not build it yet.</p>
+
+      <div class="note">
+        <span class="label">Unchanged and still a selling point</span>
+        <p>Never bypass branch protection or CODEOWNERS. The team's existing rules keep applying.</p>
+      </div>
+    </section>
+
+    <section id="s8">
+      <div class="head">
+        <div class="eyebrow"><span class="num">§ 08</span><span class="chip rev">Clarified</span></div>
+        <h2>Deployment</h2>
+      </div>
+      <p>"Deploy" is two features. The MVP ships both, and they share almost nothing.</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>&nbsp;</th><th>Preview deploys</th><th>Production deploys</th></tr></thead>
+          <tbody>
+            <tr><td>We build it</td><td><span class="pill ok">Yes</span></td><td><span class="pill stop">No</span></td></tr>
+            <tr><td>Where</td><td>Containers on the laptop, per branch</td><td>Their Vercel, their Actions, their pipeline</td></tr>
+            <tr><td>Why</td><td>Mandatory — the reviewer cannot open the app otherwise</td><td>Already solved, and better than we would</td></tr>
+            <tr><td>Lifetime</td><td>Torn down on merge</td><td>Not ours</td></tr>
+            <tr><td>Our surface</td><td>Preview URL, seeded DB, teardown</td><td>Read status from the API and display it</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Production status is read-only: <strong>Merged → Deploying → Live</strong>, pulled from the GitHub deployments and checks API. Cheap to build, and it makes the loop feel finished.</p>
+      <div class="note stop">
+        <span class="label">Rejected</span>
+        <p>A "deploy anywhere" abstraction. Every platform differs, the abstraction leaks, and it means competing with Vercel while paying server bills.</p>
+      </div>
+    </section>
+
+    <section id="s9">
+      <div class="head">
+        <div class="eyebrow"><span class="num">§ 09</span><span class="chip rev">Recommendation added</span></div>
+        <h2>UI direction</h2>
+      </div>
+      <p>Futuristic, modern, minimal. Dark and light modes.</p>
+      <p>Two candidates for the main screen. <strong>Board</strong> — columns are stages, cards are tickets, and with roles the columns mean something. <strong>Inbox</strong> — only shows agents that are blocked, failed, or waiting for review, and everything else stays quiet.</p>
+      <div class="note">
+        <span class="label">Recommendation</span>
+        <p>Ship the inbox as the default view and the board as a secondary map. With a cap of three concurrent tickets (<a href="#s5">§5</a>), a board is nearly empty and the inbox is nearly always the right screen. The board earns its place at the team tier, where a fleet actually needs a map.</p>
+      </div>
+    </section>
+
+    <section id="s10">
+      <div class="head">
+        <div class="eyebrow"><span class="num">§ 10</span><span class="chip rev">Extended</span></div>
+        <h2>Explicitly out of scope</h2>
+      </div>
+      <p>Listed so scope creep has something to bounce off.</p>
+      <ul>
+        <li>A text editor, language server, or debugger</li>
+        <li>Our own e2e test framework</li>
+        <li>Mobile app testing — web first, add it if customers ask</li>
+        <li>Production deployment</li>
+        <li>A universal "deploy anywhere" layer</li>
+        <li>Replacing GitHub or GitLab</li>
+        <li><strong>Building a skills registry.</strong> Consume the public one (<a href="#s4">§4</a>). A registry is a network-effects business and we would lose it</li>
+        <li><strong>Any backend service in v0.</strong> The moment one exists we own uptime, secrets and a bill. It comes when <a href="#s7">§7</a> forces it and not before</li>
+        <li><strong>macOS and Linux builds until the Windows loop feels good.</strong> Electron makes the port cheap later; the WSL2 work does not transfer, so doing all three now triples the environment surface for no extra learning</li>
+      </ul>
+    </section>
+
+    <section id="s11">
+      <div class="head">
+        <div class="eyebrow"><span class="num">§ 11</span><span class="chip rev">Revised</span></div>
+        <h2>v0 — the thinnest version that is still the real product</h2>
+      </div>
+      <p>v0.1 said one agent. That is reversed. The role split is <strong>architecture, not a feature</strong>: Rule 1's shared ticket doc, Rule 4's handoff engine, and role-scoped permissions all have to exist before anyone can tell whether the design works. Ship a single agent and v0 teaches you nothing about the thing this product actually is, then gets rewritten.</p>
+      <p>So v0 stays thin where thin is cheap — one ticket, no configuration, no fleet view — and goes full depth on the one axis the whole premise rests on.</p>
+      <div class="pipe">
+        <div class="stage"><span class="i">01</span><span class="who">Setup</span><span class="what">Windows app installs, detects WSL2 and Docker, guides the user through what is missing</span></div>
+        <div class="stage"><span class="i">02</span><span class="who">Connect</span><span class="what">One repo, connected by GitHub device flow</span></div>
+        <div class="stage"><span class="i">03</span><span class="who">Ticket</span><span class="what">One ticket at a time, written by the user</span></div>
+        <div class="stage"><span class="i">04</span><span class="who">Team</span><span class="what">The default <strong>three roles</strong> — Designer, Coder, Reviewer — running the sequential pipeline from <a href="#s5">§5</a></span></div>
+        <div class="stage"><span class="i">05</span><span class="who">Skills</span><span class="what">Installed from the public registry by <code>owner/repo</code>, vendored and hash-pinned into the repo, attached per role and scoped by that role's permissions. No browse UI, no editor</span></div>
+        <div class="stage"><span class="i">06</span><span class="who">Shared doc</span><span class="what">One ticket document all three read and write. No inter-agent messaging anywhere in the codebase</span></div>
+        <div class="stage"><span class="i">07</span><span class="who">Run engine</span><span class="what">The state machine owns every handoff, with durable checkpoints</span></div>
+        <div class="stage"><span class="i">08</span><span class="who">Test</span><span class="what">Written first, from the ticket</span></div>
+        <div class="stage"><span class="i">09</span><span class="who">Environment</span><span class="what">Branch, preview URL, seeded database container</span></div>
+        <div class="stage"><span class="i">10</span><span class="who">Review</span><span class="what">Diff, test output and screenshots in one screen</span></div>
+        <div class="stage"><span class="i">11</span><span class="who">Ship</span><span class="what">PR opened and merged from inside the app; production status read back from GitHub</span></div>
+      </div>
+
+      <h3>Deferred to v1, deliberately</h3>
+      <ul>
+        <li><strong>Cross-ticket parallelism.</strong> One ticket at a time in v0</li>
+        <li><strong>Team configuration.</strong> The three roles are fixed and not editable — though their skills are, by committing a folder (<a href="#s4">§4</a>)</li>
+        <li><strong>Board view.</strong> Inbox only (<a href="#s9">§9</a>)</li>
+        <li><strong>PR approval step.</strong> Merge directly (<a href="#s7">§7</a>)</li>
+        <li><strong>Cloud runner</strong></li>
+      </ul>
+
+      <div class="note">
+        <span class="label">Why this costs less than it sounds</span>
+        <p>Multi-agent within a ticket is nearly free on infrastructure. The three roles run sequentially, so they share one worktree, one app container and one database container. Container count is driven by concurrent <strong>tickets</strong>, not by agent count.</p>
+        <p>The expensive half of multi-agent is cross-ticket parallelism — and that is exactly the half v0 defers. What v0 buys with the extra tokens is the only thing worth learning early: whether the shared-document design holds up when three roles depend on it.</p>
+      </div>
+
+      <div class="note">
+        <span class="label">Done means</span>
+        <p>A developer installs the app on a clean Windows machine, connects a repo, writes one ticket, watches three role agents take it from spec to merged PR, and never leaves the app or opens a terminal. Every requirement above exists to serve that sentence.</p>
+      </div>
+    </section>
+
+    <section id="s12">
+      <div class="head">
+        <div class="eyebrow"><span class="num">§ 12</span><span class="chip rev">Updated</span></div>
+        <h2>Open questions</h2>
+      </div>
+      <div class="qlist">
+        <div class="q">
+          <span class="st closed">Closed in v0.2</span>
+          <span class="qq">Board, inbox, or both?</span>
+          <span class="qa">Inbox by default, board as a secondary map. Revisit at the team tier.</span>
+        </div>
+        <div class="q">
+          <span class="st closed">Closed in v0.2</span>
+          <span class="qq">Cap on concurrent agents?</span>
+          <span class="qa">Three concurrent tickets, sequential within each. Running cost shown in the UI.</span>
+        </div>
+        <div class="q">
+          <span class="st closed">Closed in v0.2</span>
+          <span class="qq">What happens when the laptop sleeps?</span>
+          <span class="qa">The run halts at its last durable checkpoint and resumes on wake. Told plainly, not hidden.</span>
+        </div>
+        <div class="q">
+          <span class="st closed">Closed in v0.2</span>
+          <span class="qq">Who resolves merge conflicts between two agents?</span>
+          <span class="qa">The orchestrator decides; the AI recommends. Declared file scope prevents most conflicts, the run engine halts both tickets on the rest, an agent drafts a resolution, and only the orchestrator's accept writes to the branch (<a href="#s5">§5</a>).</span>
+        </div>
+        <div class="q">
+          <span class="st def">Deferred</span>
+          <span class="qq">Pricing: per seat, per agent run, or per month?</span>
+          <span class="qa">Not a question until the MVP exists. Revisit once v0 is in someone else's hands and we know what they use it for. One thing to carry forward: the laptop-runs-everything decision removes our compute cost, which will make per-run pricing hard to justify to a customer already paying their own model bill.</span>
+        </div>
+        <div class="q">
+          <span class="st open">Still open</span>
+          <span class="qq">Why doesn't GitHub or Cursor just ship this as a feature?</span>
+          <span class="qa">Still needs an honest answer. Best candidate so far: this product's centre is the review and isolation loop rather than the editor, and neither company wants to own containers on a customer's laptop. That is an argument, not yet evidence.</span>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Agentic IDE · Spec v0.2 · 27 Aug 2026<br>
+      Supersedes v0.1. Sections marked <em>Unchanged</em> carry over verbatim.
+    </footer>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.rail a'));
+  var targets = [];
+  links.forEach(function (a) {
+    var el = document.querySelector(a.getAttribute('href'));
+    if (el) targets.push({ el: el, link: a });
+  });
+  if (!targets.length) return;
+
+  function sync() {
+    var current = targets[0];
+    targets.forEach(function (t) {
+      if (t.el.getBoundingClientRect().top <= 140) current = t;
+    });
+    links.forEach(function (a) { a.classList.remove('on'); });
+    current.link.classList.add('on');
+  }
+
+  var ticking = false;
+  window.addEventListener('scroll', function () {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function () { sync(); ticking = false; });
+  }, { passive: true });
+  sync();
+})();
+</script>
