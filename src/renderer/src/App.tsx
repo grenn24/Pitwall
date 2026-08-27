@@ -31,7 +31,8 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
     setFixing(true)
     setOutcome(null)
     try {
-      const result = await window.pitwall.doctor.fix(check.id)
+      if (!check.fixId) return
+      const result = await window.pitwall.doctor.fix(check.fixId)
       setOutcome(result)
       // Re-probe on success: what the machine looks like afterwards is the only
       // trustworthy signal, and an elevated command cannot report its own output.

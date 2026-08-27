@@ -6,7 +6,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { runDoctor } from './doctor/index'
 import { runFix } from './doctor/fixes'
 import { attachPreview, closeTicket, currentStatus, openTicket } from './session'
-import type { CheckId } from '../shared/doctor'
+import type { FixId } from '../shared/doctor'
 import { hidePreview, reloadPreview, setPreviewBounds, type PaneBounds } from './preview/pane'
 
 function createWindow(): void {
@@ -55,7 +55,7 @@ void app.whenReady().then(() => {
   ipcMain.handle('doctor:run', () => runDoctor())
   // Takes a check id, never a command. The command table lives in main so the
   // renderer cannot ask for anything that is not on it.
-  ipcMain.handle('doctor:fix', (_event, id: CheckId) => runFix(id))
+  ipcMain.handle('doctor:fix', (_event, id: FixId) => runFix(id))
   ipcMain.handle('shell:openExternal', (_event, url: string) => shell.openExternal(url))
 
   // Preview progress is streamed rather than awaited: bringing an environment up

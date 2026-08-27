@@ -1,24 +1,20 @@
 import { execFile } from 'node:child_process'
 
-import type { CheckId } from '../../shared/doctor'
-import type { FixOutcome } from '../../shared/doctor'
+import type { FixId, FixOutcome } from '../../shared/doctor'
 
 /**
  * Commands Pitwall will run on the user's behalf.
  *
- * A fixed table, keyed by check. The renderer asks for a check id and never
- * supplies a command — if the UI could hand this module a string to run with
- * elevation, one injected script in the renderer would own the machine.
+ * A fixed table. The renderer asks for a fix id and never supplies a command —
+ * if the UI could hand this module a string to run with elevation, one injected
+ * script in the renderer would own the machine. Every entry below is a constant;
+ * nothing here interpolates a value from the environment or the UI.
  *
- * Two things deliberately absent:
- *
- *   Docker Desktop. Installing it means downloading and executing a third-party
- *   installer, which is not something an app should do quietly on someone's
- *   behalf. We link to it and let them decide.
- *
- *   Anything that takes an argument. Every entry below is a constant. The moment
- *   a fix needs a distro name or a path from the environment, it needs a review
- *   of how that value is escaped, and there is no such fix yet.
+ * Installing Docker goes through winget rather than fetching an installer
+ * ourselves. That matters: winget is the OS's own package manager, its manifests
+ * are signed and hash-verified, and the command is the same one a person would
+ * type. Pitwall downloading an executable from a URL and running it elevated
+ * would be a different thing entirely, and is not something this app does.
  */
 
 export interface Fix {
@@ -28,50 +24,78 @@ export interface Fix {
   args: string[]
   /** True when Windows will show a UAC prompt. */
   elevated: boolean
-  /** What the user should expect afterwards. */
+  /** What to expect afterwards. */
   afterward?: string
 }
 
-export const FIXES: Partial<Record<CheckId, Fix>> = {
-  wsl: {
+const WINGET_DOCKER = [
+  'install',
+  '--id',
+  'Docker.DockerDesktop',
+  '-e',
+  '--accept-package-agreements',
+  '--accept-source-agreements'
+]
+
+export const FIXES: Record<FixId, Fix> = {
+  'wsl-install': {
     command: 'wsl --install',
     file: 'wsl.exe',
     args: ['--install'],
     elevated: true,
     afterward: 'Windows needs to restart before this takes effect.'
   },
-  wslVersion: {
+  'wsl-default-v2': {
     command: 'wsl --set-default-version 2',
     file: 'wsl.exe',
     args: ['--set-default-version', '2'],
     elevated: true
   },
-  distro: {
+  'distro-install': {
     command: 'wsl --install -d Ubuntu',
     file: 'wsl.exe',
     args: ['--install', '-d', 'Ubuntu'],
-    // Installing a distribution has not required elevation since the store
-    // based WSL shipped, and asking for it anyway trains people to click
-    // through UAC prompts without reading them.
+    // Installing a distribution has not needed elevation since store-based WSL
+    // shipped, and asking anyway trains people to click through UAC unread.
     elevated: false,
     afterward: 'Ubuntu will ask you to choose a username and password.'
+  },
+  'docker-install': {
+    command: `winget ${WINGET_DOCKER.join(' ')}`,
+    file: 'winget.exe',
+    args: WINGET_DOCKER,
+    elevated: true,
+    afterward:
+      'Docker Desktop is installed. Start it, and if it does not pick up your distribution automatically, enable it under Settings → Resources → WSL Integration.'
+  },
+  'docker-start': {
+    command: 'Start Docker Desktop',
+    file: 'powershell.exe',
+    args: [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      "Start-Process -FilePath \"$env:ProgramFiles\\Docker\\Docker\\Docker Desktop.exe\""
+    ],
+    elevated: false,
+    afterward: 'Docker Desktop is starting. It takes a moment to report "Engine running".'
   }
 }
 
-export function fixFor(id: CheckId): Fix | undefined {
-  return FIXES[id]
+export function fixFor(id: FixId | undefined): Fix | undefined {
+  return id ? FIXES[id] : undefined
 }
 
 /**
  * Run a fix and report how it went.
  *
  * Elevated commands go through Start-Process -Verb RunAs, which is what raises
- * the UAC dialog. Their output is not capturable — the elevated process has its
- * own console — so those report only an exit code, and the doctor re-runs
- * afterwards to find out what actually changed. That is the honest signal
- * anyway: what matters is the state of the machine, not what a command printed.
+ * the UAC dialog. Their output is not capturable — the elevated process gets its
+ * own console — so those report only an exit code and the doctor re-runs
+ * afterwards. That is the honest signal anyway: what matters is the state of the
+ * machine, not what a command claimed about itself.
  */
-export function runFix(id: CheckId): Promise<FixOutcome> {
+export function runFix(id: FixId): Promise<FixOutcome> {
   const fix = fixFor(id)
   if (!fix) return Promise.resolve({ ok: false, error: 'No fix is defined for this check.' })
 
@@ -81,28 +105,38 @@ export function runFix(id: CheckId): Promise<FixOutcome> {
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        // Arguments are constants from the table above, never interpolated
-        // from anything the renderer or the environment supplied.
-        `$p = Start-Process -FilePath '${fix.file}' -ArgumentList ${fix.args.map((a) => `'${a}'`).join(',')} -Verb RunAs -Wait -PassThru; exit $p.ExitCode`
+        `$p = Start-Process -FilePath '${fix.file}' -ArgumentList ${fix.args
+          .map((a) => `'${a}'`)
+          .join(',')} -Verb RunAs -Wait -PassThru; exit $p.ExitCode`
       ]
     : fix.args
 
   return new Promise((resolve) => {
-    execFile(file, args, { timeout: 15 * 60_000, windowsHide: true, encoding: 'buffer' }, (err, stdout, stderr) => {
+    // Generous: a Docker Desktop install over winget is a large download.
+    execFile(file, args, { timeout: 30 * 60_000, windowsHide: true, encoding: 'buffer' }, (err, stdout, stderr) => {
       if (!err) {
         resolve({ ok: true, afterward: fix.afterward })
         return
       }
 
       const text = Buffer.concat([stdout as Buffer, stderr as Buffer]).toString('utf8').trim()
-      // Cancelling the UAC prompt is a choice, not a failure to explain away.
-      const cancelled = /1223|operation was canceled/i.test(text + String(err))
-      resolve({
-        ok: false,
-        error: cancelled
-          ? 'Cancelled at the Windows permission prompt. Nothing was changed.'
-          : text.split('\n').slice(-4).join('\n') || 'The command did not complete.'
-      })
+      const blob = text + String(err)
+
+      // Declining the permission prompt is a choice, not a failure to explain.
+      if (/1223|operation was canceled/i.test(blob)) {
+        resolve({ ok: false, error: 'Cancelled at the Windows permission prompt. Nothing was changed.' })
+        return
+      }
+      // winget is present on current Windows 11 but not on every machine.
+      if (/is not recognized|ENOENT/i.test(blob)) {
+        resolve({
+          ok: false,
+          error: 'winget is not available on this machine. Install Docker Desktop from docker.com instead.'
+        })
+        return
+      }
+
+      resolve({ ok: false, error: text.split('\n').slice(-4).join('\n') || 'The command did not complete.' })
     })
   })
 }

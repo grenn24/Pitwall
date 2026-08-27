@@ -27,8 +27,8 @@ export async function runDoctor(): Promise<DoctorReport> {
       label: 'Windows Subsystem for Linux',
       status: 'fail',
       detail: 'Not installed, or not responding.',
-      remediation: 'Run this in an admin PowerShell, then restart Windows.',
-      command: 'wsl --install',
+      remediation: 'Windows needs the WSL2 platform installed, then a restart.',
+      fixId: 'wsl-install',
       docsUrl: DOCS.wsl
     })
     return finish(checks, null, started)
@@ -46,7 +46,7 @@ export async function runDoctor(): Promise<DoctorReport> {
       status: version === 1 ? 'fail' : 'warn',
       detail: version === 1 ? 'Default version is 1.' : 'Could not read the default version.',
       remediation: 'Set the default, then convert any existing distribution with "wsl --set-version <name> 2".',
-      command: 'wsl --set-default-version 2',
+      fixId: 'wsl-default-v2',
       docsUrl: DOCS.wsl,
       raw: statusRaw
     })
@@ -64,7 +64,11 @@ export async function runDoctor(): Promise<DoctorReport> {
         distros.length > 0
           ? `Only Docker Desktop's own distros are installed (${distros.map((d) => d.name).join(', ')}).`
           : 'No distributions installed.',
-      remediation: 'Install one with "wsl --install -d Ubuntu". Worktrees cannot live in Docker Desktop\'s distros — they are reset on upgrade.',
+      fixId: 'distro-install',
+      remediation:
+        distros.length > 0
+          ? 'The Docker Desktop distributions are reset on upgrade, so worktrees cannot live in them. Install a real one.'
+          : 'Note that "wsl --install" on its own may set up the platform without installing any distribution.',
       docsUrl: DOCS.wsl,
       raw: listRaw
     })
@@ -109,7 +113,8 @@ export async function runDoctor(): Promise<DoctorReport> {
       label: 'Docker daemon',
       status: 'fail',
       detail: `Not installed inside ${target.name}.`,
-      remediation: `Install Docker Desktop with the WSL 2 engine, then enable integration for ${target.name} under Settings → Resources → WSL Integration.`,
+      fixId: 'docker-install',
+      remediation: `Docker Desktop provides the engine. Once installed, enable integration for ${target.name} under Settings → Resources → WSL Integration.`,
       docsUrl: DOCS.docker,
       raw: (presence.stdout + presence.stderr).trim()
     })
@@ -143,7 +148,8 @@ export async function runDoctor(): Promise<DoctorReport> {
       label: 'Docker daemon',
       status: 'fail',
       detail: 'The Docker command is present, but the daemon is not responding.',
-      remediation: 'Start Docker Desktop and wait for it to report "Engine running".',
+      fixId: 'docker-start',
+      remediation: 'Docker Desktop is installed but not running.',
       docsUrl: DOCS.docker,
       raw: (dockerProbe.stdout + dockerProbe.stderr).trim()
     })
@@ -183,7 +189,7 @@ const ALL_CHECKS: { id: CheckId; label: string }[] = [
 function annotateFixes(checks: CheckResult[]): CheckResult[] {
   return checks.map((check) => {
     if (check.status === 'ok' || check.status === 'pending') return check
-    const fix = fixFor(check.id)
+    const fix = fixFor(check.fixId)
     return fix ? { ...check, command: fix.command, canFix: true, fixElevated: fix.elevated } : check
   })
 }

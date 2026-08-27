@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-import type { CheckId, DoctorReport, FixOutcome } from '../shared/doctor'
+import type { DoctorReport, FixId, FixOutcome } from '../shared/doctor'
 import type { PreviewStatus } from '../shared/preview'
 
 export interface PaneBounds {
@@ -18,7 +18,7 @@ export interface PaneBounds {
 const api = {
   doctor: {
     run: (): Promise<DoctorReport> => ipcRenderer.invoke('doctor:run'),
-    fix: (id: CheckId): Promise<FixOutcome> => ipcRenderer.invoke('doctor:fix', id)
+    fix: (id: FixId): Promise<FixOutcome> => ipcRenderer.invoke('doctor:fix', id)
   },
   ticket: {
     open: (remoteUrl: string, ticketId: string): Promise<PreviewStatus> =>

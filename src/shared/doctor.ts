@@ -30,9 +30,15 @@ export interface CheckResult {
    */
   command?: string
   /**
-   * True when Pitwall can run the fix itself. The renderer sends this check's
-   * id to ask for it and never the command, so the command table stays in main.
+   * Which entry in main's command table repairs this. The renderer sends this
+   * id to ask for it and never a command, so the table stays in main.
+   *
+   * Separate from the check id because one check can fail in ways that need
+   * different fixes — Docker missing and Docker stopped are not the same
+   * problem and do not have the same answer.
    */
+  fixId?: FixId
+  /** True when Pitwall can run the fix itself. */
   canFix?: boolean
   /** True when running it will raise a Windows permission prompt. */
   fixElevated?: boolean
@@ -41,6 +47,13 @@ export interface CheckResult {
 }
 
 export type CheckId = 'wsl' | 'wslVersion' | 'distro' | 'docker' | 'compose'
+
+export type FixId =
+  | 'wsl-install'
+  | 'wsl-default-v2'
+  | 'distro-install'
+  | 'docker-install'
+  | 'docker-start'
 
 export interface DistroInfo {
   name: string
