@@ -1,4 +1,5 @@
-import { chooseTargetDistro, defaultWslVersion, listDistros, wslExec, wslPresent } from './wsl'
+import { chooseTargetDistro, defaultWslVersion, listDistros, wslPresent } from './wsl'
+import { wslExec } from '../wsl/exec'
 import type { CheckResult, DoctorReport } from '../../shared/doctor'
 
 const DOCS = {

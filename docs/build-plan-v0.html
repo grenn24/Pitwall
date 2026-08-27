@@ -452,6 +452,11 @@ footer{
           <li>Teardown removes branch, containers and worktree, leaving nothing behind</li>
           <li>Cold-start time measured and written down — it becomes the number you defend</li>
         </ul>
+        <div class="note">
+          <span class="label">Measured &#183; 27 Aug 2026</span>
+          <p>Environment probe: 354&nbsp;ms, five checks. Blobless clone of <code>facebook/react</code>: 7.5&nbsp;s. Worktree add on that repo: 338&nbsp;ms. Teardown: 154&nbsp;ms.</p>
+          <p>Two detection traps found on real hardware, both now handled: <code>wsl.exe</code> emits UTF-16LE for management commands but UTF-8 for in-distro output, and <code>docker</code> can resolve on the Windows PATH to a non-executable stub, so Docker must be probed from inside the target distro.</p>
+        </div>
       </div>
     </article>
 
@@ -648,7 +653,7 @@ footer{
         <table>
           <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
           <tbody>
-            <tr><td>WSL2 makes the loop slow enough to be unpleasant</td><td><span class="pill hi">High</span></td><td>M0 finds out in week one. Fallback is a WSL2-native engine with the Electron UI as a thin client — which is why the boundary goes in from day one</td></tr>
+            <tr><td>WSL2 makes the loop slow enough to be unpleasant</td><td><span class="pill ok">Measured</span></td><td><strong>Retired.</strong> On native ext4 a worktree of 7,206 files takes 237&nbsp;ms; the identical operation onto <code>/mnt/c</code> takes 39,094&nbsp;ms — 165&#215; slower, with directory walks 120&#215; slower. Native WSL2 is fast. The risk was never WSL2, it was crossing the boundary, and the architecture already forbids that</td></tr>
             <tr><td>No general way to know how to <em>run</em> a user's app</td><td><span class="pill hi">High</span></td><td>v0 requires a compose file, or asks once and remembers. Do not attempt inference — it is a bottomless pit and it fails silently</td></tr>
             <tr><td>Role permissions enforced in prompts rather than tools</td><td><span class="pill hi">High</span></td><td>Enforced at the tool layer in M2, before any model runs. A prompt-enforced boundary is not a boundary</td></tr>
             <tr><td>A third-party skill is third-party code, running with a role's tools on a dev machine with a GitHub token in scope</td><td><span class="pill hi">High</span></td><td>Pre-install review, hash pinning, no silent updates, and the M2 tool layer as the actual boundary. Skills add knowledge, never capability. This is the one feature where a bad default lands in someone else's repo</td></tr>

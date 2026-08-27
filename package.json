@@ -10,7 +10,8 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "doctor": "tsx scripts/doctor-cli.ts"
+    "doctor": "tsx scripts/doctor-cli.ts",
+    "workspace": "tsx scripts/workspace-cli.ts"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
