@@ -1,0 +1,24 @@
+# Normalize to LF in the repository and in the working tree.
+# The app, its worktrees and its containers all run under WSL2/Linux,
+# where a CRLF shell script fails with a misleading "not found" error.
+* text=auto eol=lf
+
+# Windows-native scripts genuinely need CRLF.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Never touch these.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.pdf  binary
+*.zip  binary
+*.exe  binary
+*.dll  binary
+*.node binary
+*.woff binary
+*.woff2 binary
