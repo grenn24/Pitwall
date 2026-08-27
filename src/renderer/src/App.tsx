@@ -1,0 +1,105 @@
+import { useCallback, useEffect, useState } from 'react'
+
+import type { CheckResult, DoctorReport } from '../../shared/doctor'
+
+const STATUS_LABEL: Record<CheckResult['status'], string> = {
+  ok: 'Ready',
+  warn: 'Check',
+  fail: 'Blocked',
+  checking: 'Checking'
+}
+
+function Check({ check }: { check: CheckResult }): JSX.Element {
+  const openDocs = (): void => {
+    if (check.docsUrl) void window.pitwall.openExternal(check.docsUrl)
+  }
+
+  return (
+    <li className={`check check--${check.status}`}>
+      <span className="check__status">{STATUS_LABEL[check.status]}</span>
+      <div className="check__body">
+        <p className="check__label">{check.label}</p>
+        <p className="check__detail">{check.detail}</p>
+        {check.remediation && (
+          <p className="check__fix">
+            {check.remediation}
+            {check.docsUrl && (
+              <button className="linklike" type="button" onClick={openDocs}>
+                Open instructions
+              </button>
+            )}
+          </p>
+        )}
+      </div>
+    </li>
+  )
+}
+
+export default function App(): JSX.Element {
+  const [report, setReport] = useState<DoctorReport | null>(null)
+  const [running, setRunning] = useState(true)
+
+  const probe = useCallback(async () => {
+    setRunning(true)
+    try {
+      setReport(await window.pitwall.doctor.run())
+    } finally {
+      setRunning(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void probe()
+  }, [probe])
+
+  const blocked = report?.checks.filter((c) => c.status === 'fail').length ?? 0
+
+  return (
+    <main className="shell">
+      <header className="masthead">
+        <p className="eyebrow">Pitwall · first run</p>
+        <h1>{report?.ready ? 'This machine is ready.' : 'Checking this machine'}</h1>
+        <p className="deck">
+          Pitwall keeps every ticket in its own worktree and its own pair of containers, all inside WSL2. These
+          are the things that has to be true before a repo can be connected.
+        </p>
+      </header>
+
+      <section className="panel" aria-busy={running}>
+        {report ? (
+          <ul className="checks">
+            {report.checks.map((check) => (
+              <Check key={check.id} check={check} />
+            ))}
+          </ul>
+        ) : (
+          <p className="probing">Probing…</p>
+        )}
+
+        <footer className="panel__foot">
+          <span className="meta">
+            {report
+              ? `${report.targetDistro ? `Target: ${report.targetDistro}` : 'No usable distribution'} · probed in ${report.elapsedMs} ms`
+              : 'Running checks'}
+          </span>
+          <div className="actions">
+            <button type="button" className="btn" onClick={() => void probe()} disabled={running}>
+              {running ? 'Checking…' : 'Check again'}
+            </button>
+            <button type="button" className="btn btn--primary" disabled={!report?.ready}>
+              Connect a repo
+            </button>
+          </div>
+        </footer>
+      </section>
+
+      {report && !report.ready && (
+        <p className="hint">
+          {blocked > 0
+            ? 'Fix the blocked items above, then check again. Nothing here needs a terminal beyond the commands shown.'
+            : 'Everything essential is present. The warnings above are worth resolving but will not stop a run.'}
+        </p>
+      )}
+    </main>
+  )
+}
