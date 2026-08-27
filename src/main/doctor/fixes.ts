@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -115,7 +115,7 @@ export function runFix(id: FixId, onProgress?: (text: string) => void): Promise<
   if (!fix) return Promise.resolve({ ok: false, error: 'No fix is defined for this check.' })
 
   if (!fix.elevated) return runPlain(fix)
-  return runElevated(fix, onProgress)
+  return runViaScript(fix, true, onProgress)
 }
 
 function runPlain(fix: Fix): Promise<FixOutcome> {
@@ -147,8 +147,6 @@ function runPlain(fix: Fix): Promise<FixOutcome> {
  * and composing the equivalent inline means three levels of nested quoting —
  * a file sidesteps both problems.
  */
-/** Written by the generated script as its last act, so completion is observable. */
-const SENTINEL = '__PITWALL_EXIT__'
 
 /**
  * Run an elevated fix with no visible console.
@@ -166,9 +164,14 @@ const SENTINEL = '__PITWALL_EXIT__'
  * therefore writes its own exit code into the log as its last act, and whichever
  * signal arrives first — the sentinel or the wait — ends the run.
  */
-function runElevated(fix: Fix, onProgress?: (text: string) => void): Promise<FixOutcome> {
+export function runViaScript(
+  fix: Fix,
+  elevate: boolean,
+  onProgress?: (text: string) => void
+): Promise<FixOutcome> {
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const logPath = join(tmpdir(), `pitwall-fix-${stamp}.log`)
+  const donePath = join(tmpdir(), `pitwall-fix-${stamp}.done`)
   const scriptPath = join(tmpdir(), `pitwall-fix-${stamp}.ps1`)
 
   const psArgs = fix.args.map((a) => `'${a}'`).join(',')
@@ -183,7 +186,11 @@ function runElevated(fix: Fix, onProgress?: (text: string) => void): Promise<Fix
       `& '${fix.file}' @(${psArgs}) *>&1 | Out-File -FilePath '${logPath}' -Encoding utf8`,
       '$code = $LASTEXITCODE',
       'if ($null -eq $code) { $code = 0 }',
-      `Add-Content -Path '${logPath}' -Encoding utf8 -Value ("${SENTINEL}=" + $code)`,
+      // Completion is signalled by a separate one-line file rather than a
+      // marker inside the log. The log is held open by the redirection while
+      // the command runs and carries whatever encoding the tool chose; a
+      // dedicated file has neither problem and needs no parsing.
+      `Set-Content -Path '${donePath}' -Encoding ascii -Value $code`,
       'exit $code'
     ].join('\r\n'),
     'utf8'
@@ -194,21 +201,26 @@ function runElevated(fix: Fix, onProgress?: (text: string) => void): Promise<Fix
     let lastText = ''
     let lastChange = Date.now()
 
-    const cleanup = (): void => {
+    const cleanup = (keepLog: boolean): void => {
       clearInterval(poll)
-      try {
-        unlinkSync(scriptPath)
-        unlinkSync(logPath)
-      } catch {
-        // Best effort. A stray file in temp is not worth failing over.
+      for (const file of keepLog ? [scriptPath, donePath] : [scriptPath, donePath, logPath]) {
+        try {
+          unlinkSync(file)
+        } catch {
+          // Best effort. A stray file in temp is not worth failing over.
+        }
       }
     }
 
     const done = (outcome: FixOutcome): void => {
       if (settled) return
       settled = true
-      cleanup()
-      resolve(outcome)
+      // A failed run keeps its log, and the message says where it is. Guessing
+      // twice at why something hung is what made that necessary.
+      cleanup(!outcome.ok)
+      resolve(outcome.ok ? outcome : { ...outcome, error: `${outcome.error}
+
+Full output: ${logPath}` })
     }
 
     const readLog = (): string => {
@@ -225,15 +237,19 @@ function runElevated(fix: Fix, onProgress?: (text: string) => void): Promise<Fix
     const poll = setInterval(() => {
       const text = readLog()
 
-      const marker = text.lastIndexOf(SENTINEL)
-      if (marker !== -1) {
-        const code = Number(text.slice(marker + SENTINEL.length + 1).trim().split(/\s/)[0])
-        const body = text.slice(0, marker).trim()
-        onProgress?.(body)
+      if (existsSync(donePath)) {
+        let code = 0
+        try {
+          code = Number(readFileSync(donePath, 'ascii').trim()) || 0
+        } catch {
+          // Written but not yet readable; treat as success and let the re-probe
+          // be the judge of what actually changed.
+        }
+        onProgress?.(text)
         done(
           code === 0
             ? { ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart }
-            : { ok: false, error: explain(body, `exit ${code}`) }
+            : { ok: false, error: explain(text, `exit ${code}`) }
         )
         return
       }
@@ -249,7 +265,8 @@ function runElevated(fix: Fix, onProgress?: (text: string) => void): Promise<Fix
       // genuinely take this long, and silence is the only thing worth flagging.
       const stalledFor = Math.round((Date.now() - lastChange) / 1000)
       if (stalledFor >= 180 && stalledFor % 30 < 1) {
-        onProgress?.(`${lastText}\n\n[still running — no new output for ${Math.round(stalledFor / 60)} min]`)
+        onProgress?.(`${lastText}\n\n[still running — no new output for ${Math.round(stalledFor / 60)} min]
+[log: ${logPath}]`)
       }
     }, 900)
 
@@ -259,7 +276,9 @@ function runElevated(fix: Fix, onProgress?: (text: string) => void): Promise<Fix
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        `$p = Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${scriptPath}' -Verb RunAs -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode`
+        `$p = Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${scriptPath}'${
+          elevate ? ' -Verb RunAs' : ''
+        } -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode`
       ],
       { timeout: 45 * 60_000, windowsHide: true, encoding: 'buffer' },
       (err, out, errOut) => {
