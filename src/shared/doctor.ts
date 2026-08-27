@@ -49,6 +49,7 @@ export interface CheckResult {
 export type CheckId = 'wsl' | 'wslVersion' | 'distro' | 'docker' | 'compose'
 
 export type FixId =
+  | 'restart-windows'
   | 'wsl-install'
   | 'wsl-default-v2'
   | 'distro-install'
@@ -64,6 +65,13 @@ export interface DistroInfo {
 
 export interface FixOutcome {
   ok: boolean
+  /**
+   * True when the machine must restart before the change takes effect.
+   *
+   * Without this the UI re-probes, correctly finds nothing changed yet, and
+   * shows the same blocked row — which reads as the fix having done nothing.
+   */
+  needsRestart?: boolean
   /** What to expect next, on success. */
   afterward?: string
   /** Why it did not run, on failure. Written for a human. */

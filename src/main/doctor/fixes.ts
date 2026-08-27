@@ -20,6 +20,8 @@ import type { FixId, FixOutcome } from '../../shared/doctor'
 export interface Fix {
   /** Shown before running, so the user sees exactly what they are agreeing to. */
   command: string
+  /** True when the change only takes effect after Windows restarts. */
+  needsRestart?: boolean
   file: string
   args: string[]
   /** True when Windows will show a UAC prompt. */
@@ -38,12 +40,21 @@ const WINGET_DOCKER = [
 ]
 
 export const FIXES: Record<FixId, Fix> = {
+  'restart-windows': {
+    command: 'shutdown /r /t 5',
+    file: 'shutdown.exe',
+    args: ['/r', '/t', '5'],
+    // Restarting your own session is not a privileged operation.
+    elevated: false,
+    afterward: 'Restarting in a few seconds.'
+  },
   'wsl-install': {
     command: 'wsl --install',
     file: 'wsl.exe',
     args: ['--install'],
     elevated: true,
-    afterward: 'Windows needs to restart before this takes effect.'
+    needsRestart: true,
+    afterward: 'Installed. Windows has to restart before Pitwall can see it.'
   },
   'wsl-default-v2': {
     command: 'wsl --set-default-version 2',
@@ -115,7 +126,7 @@ export function runFix(id: FixId): Promise<FixOutcome> {
     // Generous: a Docker Desktop install over winget is a large download.
     execFile(file, args, { timeout: 30 * 60_000, windowsHide: true, encoding: 'buffer' }, (err, stdout, stderr) => {
       if (!err) {
-        resolve({ ok: true, afterward: fix.afterward })
+        resolve({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
         return
       }
 

@@ -443,3 +443,23 @@ h1 {
 .check__aside--bad {
   color: var(--stop);
 }
+
+/* A completed fix that only takes effect after a restart. Louder than a normal
+   outcome line, because the check it belongs to still reads as blocked. */
+.restart {
+  margin-top: 9px;
+  padding: 11px 13px;
+  border: 1px solid var(--ok);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.restart p {
+  font-size: 0.85rem;
+  color: var(--ink);
+  margin: 0;
+}

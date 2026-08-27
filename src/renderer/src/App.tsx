@@ -27,6 +27,16 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
     window.setTimeout(() => setCopied(false), 1600)
   }
 
+  const restart = async (): Promise<void> => {
+    setFixing(true)
+    const result = await window.pitwall.doctor.fix('restart-windows')
+    if (!result.ok) {
+      setOutcome(result)
+      setFixing(false)
+    }
+    // On success the machine is going down; leave the button disabled.
+  }
+
   const runFix = async (): Promise<void> => {
     setFixing(true)
     setOutcome(null)
@@ -71,13 +81,29 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
                 </button>
               </div>
             )}
-            {check.canFix && check.fixElevated && !outcome && (
-              <p className="check__aside">Windows will ask for permission before this runs.</p>
+            {check.canFix && !outcome && (
+              <p className="check__aside">
+                {check.fixElevated
+                  ? 'Windows will ask for permission, then a console window opens showing progress. It closes when the command finishes.'
+                  : 'A console window opens showing progress. It closes when the command finishes.'}
+              </p>
             )}
-            {outcome && (
+            {outcome && !outcome.needsRestart && (
               <p className={outcome.ok ? 'check__aside check__aside--ok' : 'check__aside check__aside--bad'}>
                 {outcome.ok ? (outcome.afterward ?? 'Done.') : outcome.error}
               </p>
+            )}
+            {outcome?.needsRestart && (
+              <div className="restart">
+                <p>
+                  {outcome.afterward}
+                  <br />
+                  This check stays blocked until then — that is expected, not a failure.
+                </p>
+                <button type="button" className="btn btn--tiny btn--primary" onClick={() => void restart()} disabled={fixing}>
+                  Restart Windows
+                </button>
+              </div>
             )}
           </div>
         )}
