@@ -23,7 +23,12 @@ function createWindow(): void {
       preload: join(import.meta.dirname, '../preload/index.mjs'),
       sandbox: false,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // Chromium throttles timers and skips paints for windows that are
+      // occluded or unfocused. Pitwall spends most of its life behind a
+      // terminal while a long install runs, and a status that only refreshes
+      // when the window is touched is worse than useless — it reads as a hang.
+      backgroundThrottling: false
     }
   })
 
