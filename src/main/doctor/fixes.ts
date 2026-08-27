@@ -118,9 +118,13 @@ export const FIXES: Record<FixId, Fix> = {
     landed: async () => (await defaultWslVersion()).version === 2
   },
   'distro-install': {
-    command: 'wsl --install -d Ubuntu',
+    command: 'wsl --install -d Ubuntu --web-download',
     file: 'wsl.exe',
-    args: ['--install', '-d', 'Ubuntu'],
+    // --web-download fetches the distribution straight from Microsoft instead
+    // of through the Store. The Store path stalls badly on a fresh machine —
+    // no account signed in, a throttled CDN, and no useful progress while it
+    // sits there. This one shows a percentage and finishes.
+    args: ['--install', '-d', 'Ubuntu', '--web-download'],
     // Installing a distribution has not needed elevation since store-based WSL
     // shipped, and asking anyway trains people to click through UAC unread.
     elevated: true,
