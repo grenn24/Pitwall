@@ -39,11 +39,16 @@ function Check({ check }: { check: CheckResult }): JSX.Element {
 export default function App(): JSX.Element {
   const [report, setReport] = useState<DoctorReport | null>(null)
   const [running, setRunning] = useState(true)
+  const [showChecks, setShowChecks] = useState(false)
 
   const probe = useCallback(async () => {
     setRunning(true)
     try {
-      setReport(await window.pitwall.doctor.run())
+      const next = await window.pitwall.doctor.run()
+      setReport(next)
+      // A passing environment is not what anyone opened the app to read. Once it
+      // passes, collapse it to one line and give the space to the work.
+      setShowChecks(!next.ready)
     } finally {
       setRunning(false)
     }
@@ -53,48 +58,67 @@ export default function App(): JSX.Element {
     void probe()
   }, [probe])
 
+  const ready = report?.ready ?? false
   const blocked = report?.checks.filter((c) => c.status === 'fail').length ?? 0
 
   return (
-    <main className="shell">
-      <header className="masthead">
-        <p className="eyebrow">Pitwall · first run</p>
-        <h1>{report?.ready ? 'This machine is ready.' : 'Checking this machine'}</h1>
-        <p className="deck">
-          Pitwall keeps every ticket in its own worktree and its own pair of containers, all inside WSL2. These
-          are the things that has to be true before a repo can be connected.
-        </p>
-      </header>
-
-      <section className="panel" aria-busy={running}>
-        {report ? (
-          <ul className="checks">
-            {report.checks.map((check) => (
-              <Check key={check.id} check={check} />
-            ))}
-          </ul>
-        ) : (
-          <p className="probing">Probing…</p>
-        )}
-
-        <footer className="panel__foot">
-          <span className="meta">
-            {report
-              ? `${report.targetDistro ? `Target: ${report.targetDistro}` : 'No usable distribution'} · probed in ${report.elapsedMs} ms`
-              : 'Running checks'}
+    <main className={ready ? 'shell shell--working' : 'shell'}>
+      {ready ? (
+        <header className="statusline">
+          <span className="statusline__dot" aria-hidden="true" />
+          <span className="statusline__text">
+            Environment ready · {report?.targetDistro} · probed in {report?.elapsedMs} ms
           </span>
-          <div className="actions">
-            <button type="button" className="btn" onClick={() => void probe()} disabled={running}>
-              {running ? 'Checking…' : 'Check again'}
-            </button>
+          <button type="button" className="linklike" onClick={() => setShowChecks((v) => !v)}>
+            {showChecks ? 'Hide checks' : 'Show checks'}
+          </button>
+          <button type="button" className="linklike" onClick={() => void probe()} disabled={running}>
+            Re-check
+          </button>
+        </header>
+      ) : (
+        <header className="masthead">
+          <p className="eyebrow">Pitwall · first run</p>
+          <h1>Checking this machine</h1>
+          <p className="deck">
+            Pitwall keeps every ticket in its own worktree and its own pair of containers, all inside WSL2. These
+            are the things that have to be true before a repo can be connected.
+          </p>
+        </header>
+      )}
 
-          </div>
-        </footer>
-      </section>
+      {(showChecks || !report) && (
+        <section className="panel" aria-busy={running}>
+          {report ? (
+            <ul className="checks">
+              {report.checks.map((check) => (
+                <Check key={check.id} check={check} />
+              ))}
+            </ul>
+          ) : (
+            <p className="probing">Probing…</p>
+          )}
 
-      {report?.ready && <Preview />}
+          {!ready && (
+            <footer className="panel__foot">
+              <span className="meta">
+                {report
+                  ? `${report.targetDistro ? `Target: ${report.targetDistro}` : 'No usable distribution'} · probed in ${report.elapsedMs} ms`
+                  : 'Running checks'}
+              </span>
+              <div className="actions">
+                <button type="button" className="btn" onClick={() => void probe()} disabled={running}>
+                  {running ? 'Checking…' : 'Check again'}
+                </button>
+              </div>
+            </footer>
+          )}
+        </section>
+      )}
 
-      {report && !report.ready && (
+      {ready && <Preview />}
+
+      {report && !ready && (
         <p className="hint">
           {blocked > 0
             ? 'Fix the blocked items above, then check again. Nothing here needs a terminal beyond the commands shown.'
