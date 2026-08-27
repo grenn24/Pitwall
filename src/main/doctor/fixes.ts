@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 import { writeState } from '../state'
 import { decodeWslOutput } from '../wsl/exec'
-import { defaultWslVersion, wslPresent } from './wsl'
+import { chooseTargetDistro, defaultWslVersion, listDistros, wslPresent } from './wsl'
 import type { FixId, FixOutcome } from '../../shared/doctor'
 
 /**
@@ -64,10 +64,33 @@ export const FIXES: Record<FixId, Fix> = {
     elevated: true,
     needsRestart: true,
     whileRunning:
-      'Installing the WSL2 platform and Ubuntu. This takes a few minutes and prints almost nothing while it works.',
+      'Installing the WSL2 platform. This takes a few minutes and prints almost nothing while it works.',
     afterward: 'Installed. Windows has to restart before any of it works.',
     landed: async () => wslPresent(),
     onSuccess: () => writeState({ wslInstalledAt: new Date().toISOString() })
+  },
+  'distro-install': {
+    command: 'wsl --install -d Ubuntu --web-download --no-launch',
+    file: 'wsl.exe',
+    // Three flags, each earning its place.
+    //
+    // -d names the distribution: `wsl --install` on its own installs the
+    // platform and nothing else on current Windows builds, whatever the
+    // documentation says about a default.
+    //
+    // --web-download fetches from Microsoft rather than the Store, which
+    // stalls indefinitely on a machine with no Store account signed in.
+    //
+    // --no-launch registers it without starting it. Launching triggers the
+    // account setup prompt, and a prompt needs a console, a visible window and
+    // a person — all of which this avoids. Commands run as root until someone
+    // opens the distribution and creates an account, which is fine for cloning
+    // and running containers.
+    args: ['--install', '-d', 'Ubuntu', '--web-download', '--no-launch'],
+    elevated: true,
+    whileRunning: 'Downloading and registering Ubuntu. This is a few hundred megabytes.',
+    afterward: 'Ubuntu is installed.',
+    landed: async () => chooseTargetDistro((await listDistros()).distros) !== null
   },
   'wsl-default-v2': {
     command: 'wsl --set-default-version 2',

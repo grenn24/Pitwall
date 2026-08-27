@@ -53,6 +53,7 @@ export type CheckId = 'wsl' | 'git' | 'docker' | 'compose'
 export type FixId =
   | 'restart-windows'
   | 'wsl-install'
+  | 'distro-install'
   | 'wsl-default-v2'
 
 export interface DistroInfo {

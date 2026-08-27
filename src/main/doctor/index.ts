@@ -81,8 +81,9 @@ export async function runDoctor(): Promise<DoctorReport> {
         distros.length > 0
           ? `Only Docker Desktop's own distributions are present (${distros.map((d) => d.name).join(', ')}), and those are reset on upgrade.`
           : 'The platform is installed, but there is no Linux distribution.',
-      remediation: 'This installs Ubuntu and restarts Windows.',
-      fixId: 'wsl-install',
+      remediation:
+        'Installing the platform does not bring a distribution with it on current Windows builds, so this is a separate step. No restart needed afterwards.',
+      fixId: 'distro-install',
       docsUrl: DOCS.wsl,
       raw: listRaw
     })
