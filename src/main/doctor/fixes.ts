@@ -123,10 +123,10 @@ export const FIXES: Record<FixId, Fix> = {
     args: ['--install', '-d', 'Ubuntu'],
     // Installing a distribution has not needed elevation since store-based WSL
     // shipped, and asking anyway trains people to click through UAC unread.
-    elevated: false,
+    elevated: true,
     interactive: true,
     whileRunning:
-      'A terminal window is open. Choose a username and password for Ubuntu there — this window will catch up on its own.',
+      'An elevated terminal window is open. Choose a username and password for Ubuntu there — this window will catch up on its own.',
     afterward: 'Ubuntu is installed and ready.',
     landed: async () => chooseTargetDistro((await listDistros()).distros) !== null
   },
@@ -248,6 +248,9 @@ async function resolveArgs(fix: Fix): Promise<Fix | null> {
 
 function dispatch(fix: Fix, onProgress?: (text: string) => void): Promise<FixOutcome> {
 
+  // Interactive first: an interactive fix is visible whether or not it also
+  // needs elevation, and the hidden elevated path would leave its prompt with
+  // nowhere to appear.
   if (fix.interactive) return runInteractive(fix)
   if (!fix.elevated) return runPlain(fix)
   return runViaScript(fix, true, onProgress)
@@ -300,7 +303,9 @@ function runInteractive(fix: Fix): Promise<FixOutcome> {
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        `Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${scriptPath}' -WindowStyle Normal`
+        `Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${scriptPath}'${
+          fix.elevated ? ' -Verb RunAs' : ''
+        } -WindowStyle Normal`
       ],
       { windowsHide: true, timeout: 60_000 },
       (err) => {
