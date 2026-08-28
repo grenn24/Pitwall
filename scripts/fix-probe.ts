@@ -67,6 +67,22 @@ const cases: { name: string; fix: Fix; expectOk: boolean; maxMs?: number }[] = [
     maxMs: 20_000
   },
   {
+    // A fix whose effect only appears after a reboot cannot be confirmed first.
+    // Demanding proof marked the WSL install as failed and swallowed the
+    // restart prompt with it.
+    name: 'restart makes verification impossible, not failed',
+    fix: {
+      command: 'true',
+      file: 'cmd.exe',
+      args: ['/c', 'exit', '0'],
+      elevated: true,
+      needsRestart: true,
+      landed: async () => false
+    },
+    expectOk: true,
+    maxMs: 20_000
+  },
+  {
     name: 'reports a non-zero exit as failure',
     fix: { command: 'exit 3', file: 'cmd.exe', args: ['/c', 'exit', '3'], elevated: true },
     expectOk: false

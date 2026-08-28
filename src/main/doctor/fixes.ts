@@ -81,6 +81,19 @@ export const FIXES: Record<FixId, Fix> = {
   }
 }
 
+/**
+ * Must this fix be confirmed against the machine before it counts as done?
+ *
+ * Only when it can be. A fix that needs a restart cannot show up on the machine
+ * until the machine has restarted, so demanding proof first would mark every
+ * such fix as failed — which is exactly what happened to the WSL install: it
+ * exited cleanly, the machine could not yet agree, and a successful install was
+ * reported as a failure, taking the restart prompt with it.
+ */
+function mustVerify(fix: Fix): boolean {
+  return Boolean(fix.landed) && !fix.needsRestart
+}
+
 export function fixFor(id: FixId | undefined): Fix | undefined {
   return id ? FIXES[id] : undefined
 }
@@ -141,7 +154,7 @@ function runPlain(fix: Fix): Promise<FixOutcome> {
         return
       }
 
-      if (!fix.landed) {
+      if (!mustVerify(fix)) {
         fix.onSuccess?.()
         resolve({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
         return
@@ -149,7 +162,7 @@ function runPlain(fix: Fix): Promise<FixOutcome> {
 
       const deadline = Date.now() + 90_000
       while (Date.now() < deadline) {
-        if (await fix.landed().catch(() => false)) {
+        if (await fix.landed?.().catch(() => false)) {
           fix.onSuccess?.()
           diag(`plain ${fix.command} confirmed by machine state`)
           resolve({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
@@ -298,11 +311,11 @@ export function runViaScript(fix: Fix, elevate: boolean, onProgress?: (text: str
           done({ ok: false, error: explain(text, `exit ${code}`) })
           return
         }
-        if (!fix.landed) {
+        if (!mustVerify(fix)) {
           done({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
           return
         }
-        // Exited cleanly, but this fix can be verified. Wait for the machine.
+        // Exited cleanly, and this one can be verified. Wait for the machine.
         processSucceededAt ??= Date.now()
       }
 
@@ -350,7 +363,7 @@ export function runViaScript(fix: Fix, elevate: boolean, onProgress?: (text: str
         const log = readLog()
         diag(`execFile returned err=${err ? String(err).split('\n')[0] : 'none'} doneExists=${existsSync(donePath)}`)
         if (!err) {
-          if (!fix.landed) {
+          if (!mustVerify(fix)) {
             done({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
             return
           }
