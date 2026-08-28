@@ -612,3 +612,14 @@ h1 {
   color: var(--ink-mute);
   white-space: nowrap;
 }
+
+.field__value {
+  font-family: var(--mono);
+  font-size: 0.87rem;
+  color: var(--ink);
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-sunk);
+  user-select: text;
+}

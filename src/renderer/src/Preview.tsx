@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { PreviewStatus } from '../../shared/preview'
+import type { Repo } from '../../shared/github'
 
 const PHASE_TEXT: Record<PreviewStatus['phase'], string> = {
   idle: 'Idle',
@@ -12,8 +13,7 @@ const PHASE_TEXT: Record<PreviewStatus['phase'], string> = {
   failed: 'Failed'
 }
 
-export default function Preview(): JSX.Element {
-  const [remote, setRemote] = useState('https://github.com/docker/welcome-to-docker.git')
+export default function Preview({ repo }: { repo: Repo }): JSX.Element {
   const [ticketId, setTicketId] = useState('ticket-1')
   const [status, setStatus] = useState<PreviewStatus | null>(null)
   const [busy, setBusy] = useState(false)
@@ -53,11 +53,11 @@ export default function Preview(): JSX.Element {
     setBusy(true)
     setStatus({ phase: 'writing-compose', env: null })
     try {
-      setStatus(await window.pitwall.ticket.open(remote.trim(), ticketId.trim() || 'ticket-1'))
+      setStatus(await window.pitwall.ticket.open(repo.cloneUrl, ticketId.trim() || 'ticket-1'))
     } finally {
       setBusy(false)
     }
-  }, [remote, ticketId])
+  }, [repo.cloneUrl, ticketId])
 
   const close = useCallback(async () => {
     setBusy(true)
@@ -75,10 +75,10 @@ export default function Preview(): JSX.Element {
   return (
     <section className="preview">
       <div className="bar">
-        <label className="field">
+        <div className="field">
           <span>Repository</span>
-          <input value={remote} onChange={(e) => setRemote(e.target.value)} disabled={busy || !!ready} spellCheck={false} />
-        </label>
+          <p className="field__value">{repo.fullName}</p>
+        </div>
         <label className="field field--narrow">
           <span>Ticket</span>
           <input value={ticketId} onChange={(e) => setTicketId(e.target.value)} disabled={busy || !!ready} spellCheck={false} />
@@ -93,7 +93,7 @@ export default function Preview(): JSX.Element {
             </button>
           </div>
         ) : (
-          <button type="button" className="btn btn--primary" onClick={() => void open()} disabled={busy || !remote.trim()}>
+          <button type="button" className="btn btn--primary" onClick={() => void open()} disabled={busy}>
             {busy ? 'Working…' : 'Create preview'}
           </button>
         )}

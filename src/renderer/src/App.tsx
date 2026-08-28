@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 
+import GitHub from './GitHub'
 import Preview from './Preview'
 import type { CheckResult, DoctorReport } from '../../shared/doctor'
+import type { Repo } from '../../shared/github'
 
 const STATUS_LABEL: Record<CheckResult['status'], string> = {
   ok: 'Ready',
@@ -63,6 +65,7 @@ export default function App(): JSX.Element {
   const [report, setReport] = useState<DoctorReport | null>(null)
   const [running, setRunning] = useState(true)
   const [showChecks, setShowChecks] = useState(false)
+  const [repo, setRepo] = useState<Repo | null>(null)
 
   const probe = useCallback(async () => {
     setRunning(true)
@@ -139,7 +142,12 @@ export default function App(): JSX.Element {
         </section>
       )}
 
-      {ready && <Preview />}
+      {ready && (
+        <>
+          <GitHub picked={repo} onPick={setRepo} />
+          {repo && <Preview repo={repo} />}
+        </>
+      )}
 
       {report && !ready && (
         <p className="hint">
