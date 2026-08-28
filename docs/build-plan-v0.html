@@ -530,6 +530,7 @@ footer{
     <div class="sep"></div>
     <a href="#m0"><span class="n">M0</span>Environment</a>
     <a href="#m1"><span class="n">M1</span>Identity</a>
+    <a href="#m1-found"><span class="n">—</span>M1 found</a>
     <a href="#m2"><span class="n">M2</span>Run engine</a>
     <a href="#m3"><span class="n">M3</span>Coder + skills</a>
     <a href="#m4"><span class="n">M4</span>Tests first</a>
@@ -702,25 +703,45 @@ Get-VMSecurity  -VMName "Pitwall-Test" | Select-Object TpmEnabled</pre>
     </section>
 
     <article class="ms" id="m1">
-      <div class="ms-head"><span class="ms-id">M1</span><span class="ms-name">Identity and repo connect</span><span class="ms-dur">4 days</span></div>
+      <div class="ms-head"><span class="ms-id">M1</span><span class="ms-name">Identity and repo connect</span><span class="ms-dur">4 days</span><span class="ms-state done">Complete</span></div>
       <div class="ms-body">
         <div class="derisk"><span class="k">De-risks</span><span>The auth correction in §7. Device flow either gives us the permissions we need with no backend, or it doesn't and the plan changes.</span></div>
         <span class="sub">Build</span>
         <ul>
-          <li>GitHub App registered, device flow enabled, no client secret shipped</li>
-          <li>Token stored via Electron <code>safeStorage</code> into Windows Credential Manager, never plaintext on disk</li>
-          <li>Installation and repository listing, pick one, clone</li>
-          <li>Read-only checks and deployments status for a branch</li>
+          <li class="done">GitHub App registered, device flow enabled, no client secret shipped</li>
+          <li class="done">Token stored via Electron <code>safeStorage</code> into Windows Credential Manager, never plaintext on disk</li>
+          <li class="done">Installation and repository listing, pick one, clone</li>
+          <li class="done">Read-only checks and deployments status for a branch</li>
         </ul>
         <span class="sub">Exit criteria</span>
         <ul class="crit">
-          <li>Device flow completes inside the app</li>
-          <li>Token survives a restart; revoking it on GitHub produces a clean re-auth prompt, not a crash</li>
-          <li>Branch status reads back as queued / running / success</li>
-          <li>A repo the App was not granted is invisible, not an error</li>
+          <li class="done">Device flow completes inside the app</li>
+          <li class="done">Token survives a restart; revoking it on GitHub produces a clean re-auth prompt, not a crash</li>
+          <li class="done">Branch status reads back as queued / running / success</li>
+          <li class="done">A repo the App was not granted is invisible, not an error</li>
         </ul>
       </div>
     </article>
+
+    <section id="m1-found">
+      <div class="head">
+        <div class="eyebrow"><span class="num">M1 &#183; FOUND</span></div>
+        <h2>What identity cost</h2>
+      </div>
+      <div class="note stop">
+        <span class="label">Antivirus breaks HTTPS for Node</span>
+        <p>Norton on the development machine re-signs every HTTPS connection with its own root. Node ships its own certificate list, does not consult the Windows store, and refused connections that every browser on the same machine accepted — reported only as <code>TypeError: fetch failed</code>.</p>
+        <p>The app now makes GitHub requests through Electron&#8217;s <code>net</code> module, which uses Chromium&#8217;s stack and the Windows certificate store. This is not a local workaround: antivirus doing TLS inspection is common, and any user with it would have hit the same wall on their first sign-in. Git needed the same treatment, through <code>http.sslBackend=schannel</code>.</p>
+      </div>
+      <div class="note">
+        <span class="label">Authorising and installing are different acts</span>
+        <p>A user can complete the device flow and still have granted the app nothing, which reads as a failed sign-in and is not one. Both the app and the command line tool now say so.</p>
+      </div>
+      <div class="note">
+        <span class="label">Verified, 28 Aug</span>
+        <p>Sign-in inside the app, a restart returning signed in, a revoked authorisation landing on a clean sign-in screen rather than an error, real CI status read from GitHub Actions, and a repository outside the grant absent rather than failing. The stored token is 71 bytes of DPAPI ciphertext beginning <code>v10</code> &#8212; not the 40-character token.</p>
+      </div>
+    </section>
 
     <article class="ms" id="m2">
       <div class="ms-head"><span class="ms-id">M2</span><span class="ms-name">The run engine, with no intelligence in it</span><span class="ms-dur">1 week</span></div>
