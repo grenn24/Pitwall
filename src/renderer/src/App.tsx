@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import Preview from './Preview'
-import type { CheckResult, DoctorReport, FixOutcome } from '../../shared/doctor'
-
-function formatElapsed(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`
-  return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`
-}
+import type { CheckResult, DoctorReport } from '../../shared/doctor'
 
 const STATUS_LABEL: Record<CheckResult['status'], string> = {
   ok: 'Ready',
@@ -16,40 +11,8 @@ const STATUS_LABEL: Record<CheckResult['status'], string> = {
   pending: 'Pending'
 }
 
-function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }): JSX.Element {
+function Check({ check }: { check: CheckResult }): JSX.Element {
   const [copied, setCopied] = useState(false)
-  const [fixing, setFixing] = useState(false)
-  const [outcome, setOutcome] = useState<FixOutcome | null>(null)
-  const [progress, setProgress] = useState('')
-  const [elapsed, setElapsed] = useState(0)
-  const [restartIn, setRestartIn] = useState<number | null>(null)
-
-  // Elapsed time, because "Running…" on its own cannot distinguish work in
-  // progress from something that has quietly stopped answering.
-  useEffect(() => {
-    if (!fixing) return
-    const started = Date.now()
-    setElapsed(0)
-    const timer = window.setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000)
-    return () => window.clearInterval(timer)
-  }, [fixing])
-
-  useEffect(
-    () =>
-      window.pitwall.doctor.onFixProgress((p) => {
-        if (p.id === check.fixId) setProgress(p.text)
-      }),
-    [check.fixId]
-  )
-
-  // An interactive step is finished by the user in a window of its own, so keep
-  // re-probing until the machine agrees it is done. Stops as soon as the check
-  // it belongs to goes green.
-  useEffect(() => {
-    if (!outcome?.pending || check.status === 'ok') return
-    const timer = window.setInterval(onFixed, 5000)
-    return () => window.clearInterval(timer)
-  }, [outcome?.pending, check.status, onFixed])
 
   const openDocs = (): void => {
     if (check.docsUrl) void window.pitwall.openExternal(check.docsUrl)
@@ -60,49 +23,6 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
     await navigator.clipboard.writeText(check.command)
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1600)
-  }
-
-  // A fix that needs a restart restarts the machine, rather than leaving a
-  // button for someone to find. The countdown exists so it is never a surprise
-  // and can be stopped — there may be unsaved work in another window.
-  useEffect(() => {
-    if (!outcome?.needsRestart || !outcome.ok) return
-    setRestartIn(20)
-  }, [outcome?.needsRestart, outcome?.ok])
-
-  useEffect(() => {
-    if (restartIn === null) return
-    if (restartIn <= 0) {
-      void window.pitwall.doctor.fix('restart-windows')
-      return
-    }
-    const timer = window.setTimeout(() => setRestartIn((n) => (n === null ? null : n - 1)), 1000)
-    return () => window.clearTimeout(timer)
-  }, [restartIn])
-
-  const restart = async (): Promise<void> => {
-    setRestartIn(null)
-    const result = await window.pitwall.doctor.fix('restart-windows')
-    // On success the machine is going down and there is nothing to report.
-    if (!result.ok) setOutcome(result)
-  }
-
-  const runFix = async (): Promise<void> => {
-    setFixing(true)
-    setOutcome(null)
-    setProgress('')
-    try {
-      if (!check.fixId) return
-      const result = await window.pitwall.doctor.fix(check.fixId)
-      setOutcome(result)
-      // Re-probe on success: what the machine looks like afterwards is the only
-      // trustworthy signal, and an elevated command cannot report its own output.
-      if (result.ok) onFixed()
-      // A pending launch is not done; the effect above keeps watching.
-      if (result.pending) setFixing(false)
-    } finally {
-      setFixing(false)
-    }
   }
 
   return (
@@ -122,61 +42,15 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
               )}
             </p>
             {check.command && (
-              <div className="cmd">
-                <code>{check.command}</code>
-                {check.canFix && (
-                  <button type="button" className="btn btn--tiny btn--primary" onClick={() => void runFix()} disabled={fixing}>
-                    {fixing ? `Running… ${formatElapsed(elapsed)}` : 'Run this'}
-                  </button>
-                )}
-                <button type="button" className="btn btn--tiny" onClick={() => void copy()}>
-                  {copied ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-            )}
-            {check.canFix && !outcome && (
-              <p className="check__aside">
-                {check.fixElevated
-                  ? 'Windows will ask for permission, then a console window opens showing progress. It closes when the command finishes.'
-                  : 'A console window opens showing progress. It closes when the command finishes.'}
-              </p>
-            )}
-            {fixing && check.fixWhileRunning && (
-              <p className="check__aside">{check.fixWhileRunning}</p>
-            )}
-            {fixing && progress && (
-              <pre className="fixlog">{progress.split('\n').slice(-6).join('\n')}</pre>
-            )}
-            {outcome && !outcome.needsRestart && (
-              <p className={outcome.ok ? 'check__aside check__aside--ok' : 'check__aside check__aside--bad'}>
-                {outcome.ok ? (outcome.afterward ?? 'Done.') : outcome.error}
-              </p>
-            )}
-            {outcome?.needsRestart && (
-              <div className="restart">
-                <p>
-                  {outcome.afterward}
-                  <br />
-                  {restartIn === null
-                    ? 'This check stays blocked until Windows restarts — that is expected, not a failure.'
-                    : restartIn > 0
-                      ? `Restarting in ${restartIn} second${restartIn === 1 ? '' : 's'}. Save anything open in other windows.`
-                      : 'Restarting now.'}
-                </p>
-                <div className="restart__actions">
-                  {restartIn !== null && restartIn > 0 && (
-                    <button type="button" className="btn btn--tiny" onClick={() => setRestartIn(null)}>
-                      Not now
-                    </button>
-                  )}
-                  {/* Never disabled by an unrelated fix still marked running.
-                      A restart button that cannot be clicked because something
-                      else got stuck is the worst possible time to be stuck. */}
-                  <button type="button" className="btn btn--tiny btn--primary" onClick={() => void restart()}>
-                    Restart now
+              <>
+                {check.shell && <p className="check__shell">{check.shell}</p>}
+                <div className="cmd">
+                  <code>{check.command}</code>
+                  <button type="button" className="btn btn--tiny" onClick={() => void copy()}>
+                    {copied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
-              </div>
+              </>
             )}
           </div>
         )}
@@ -241,7 +115,7 @@ export default function App(): JSX.Element {
           {report ? (
             <ul className="checks">
               {report.checks.map((check) => (
-                <Check key={check.id} check={check} onFixed={() => void probe()} />
+                <Check key={check.id} check={check} />
               ))}
             </ul>
           ) : (
@@ -270,7 +144,7 @@ export default function App(): JSX.Element {
       {report && !ready && (
         <p className="hint">
           {blocked > 0
-            ? 'Work through the blocked items above, then check again.'
+            ? 'Run the commands above, then check again.'
             : 'Everything essential is present. The warnings above are worth resolving but will not stop a run.'}
         </p>
       )}

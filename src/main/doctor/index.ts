@@ -1,7 +1,5 @@
-import { clearState, readState } from '../state'
 import { chooseTargetDistro, defaultWslVersion, listDistros, wslPresent } from './wsl'
 import { wslExec } from '../wsl/exec'
-import { fixFor } from './fixes'
 import type { CheckId, CheckResult, DoctorReport } from '../../shared/doctor'
 
 const DOCS = {
@@ -27,33 +25,20 @@ export async function runDoctor(): Promise<DoctorReport> {
   // Separate from the distribution because they are separate commands with
   // separate outcomes: installing the platform brings no distribution with it,
   // and only the platform needs a restart.
-  if (readState().wslInstalledAt && !(await wslPresent())) {
-    checks.push({
-      id: 'wsl',
-      label: 'The WSL2 platform',
-      status: 'fail',
-      detail: 'Installed. Windows has to restart before it works.',
-      remediation: 'Nothing else can be checked until the machine has restarted.',
-      fixId: 'restart-windows'
-    })
-    return finish(checks, null, started)
-  }
-
   if (!(await wslPresent())) {
     checks.push({
       id: 'wsl',
       label: 'The WSL2 platform',
       status: 'fail',
       detail: 'Not installed.',
-      remediation: 'This installs the Windows components WSL2 needs, then restarts Windows.',
-      fixId: 'wsl-install',
+      remediation:
+        'Run this as administrator, then restart Windows. If you have already run it, the restart is what is still missing.',
+      command: 'wsl --install --no-distribution',
+      shell: 'PowerShell or Command Prompt, as administrator',
       docsUrl: DOCS.wsl
     })
     return finish(checks, null, started)
   }
-
-  // WSL answers, so any record of an install waiting on a restart is spent.
-  if (readState().wslInstalledAt) clearState(['wslInstalledAt'])
 
   const { version } = await defaultWslVersion()
   if (version === 1) {
@@ -63,7 +48,8 @@ export async function runDoctor(): Promise<DoctorReport> {
       status: 'fail',
       detail: 'Installed, but version 1 is the default.',
       remediation: 'Version 1 cannot run the Docker integration.',
-      fixId: 'wsl-default-v2',
+      command: 'wsl --set-default-version 2',
+      shell: 'PowerShell or Command Prompt, as administrator',
       docsUrl: DOCS.wsl
     })
     return finish(checks, null, started)
@@ -87,8 +73,9 @@ export async function runDoctor(): Promise<DoctorReport> {
       // Store, the account prompt and a per-user registration that resists
       // elevation. Run interactively by a person, all three just work.
       command: 'wsl --install Ubuntu',
+      shell: 'PowerShell or Command Prompt',
       remediation:
-        'Run this in a terminal. It downloads Ubuntu and then asks you to choose a username and password. No restart needed afterwards.',
+        'Downloads Ubuntu and then asks you to choose a username and password. No restart needed afterwards.',
       docsUrl: DOCS.ubuntu,
       raw: listRaw
     })
@@ -136,6 +123,7 @@ export async function runDoctor(): Promise<DoctorReport> {
       status: 'fail',
       detail: `Not installed inside ${target.name}.`,
       command: `wsl -d ${target.name} -- sudo apt-get update && sudo apt-get install -y git`,
+      shell: 'PowerShell or Command Prompt',
       remediation:
         'Every clone and worktree runs inside the distribution, so git has to be there rather than on Windows. Run this in a terminal — it will ask for your Linux password.'
     })
@@ -243,19 +231,6 @@ const ALL_CHECKS: { id: CheckId; label: string }[] = [
   { id: 'compose', label: 'Docker Compose v2' }
 ]
 
-/** Mark the checks Pitwall can repair itself, from main's own command table. */
-function annotateFixes(checks: CheckResult[]): CheckResult[] {
-  return checks.map((check) => {
-    if (check.status === 'ok' || check.status === 'pending') return check
-    const fix = fixFor(check.fixId)
-    // A check without an automated fix keeps whatever command it set for
-    // itself, so the user can still copy it rather than retype it.
-    return fix
-      ? { ...check, command: fix.command, canFix: true, fixElevated: fix.elevated, fixWhileRunning: fix.whileRunning }
-      : check
-  })
-}
-
 function finish(checks: CheckResult[], targetDistro: string | null, started: number): DoctorReport {
   // The probe stops at the first blocker, since later checks depend on earlier
   // ones. Pad the rest as pending rather than hiding them: someone looking at a
@@ -269,7 +244,7 @@ function finish(checks: CheckResult[], targetDistro: string | null, started: num
   ]
 
   return {
-    checks: annotateFixes(padded),
+    checks: padded,
     targetDistro,
     ready: padded.every((c) => c.status === 'ok'),
     elapsedMs: Date.now() - started

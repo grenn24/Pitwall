@@ -487,3 +487,13 @@ h1 {
   gap: 8px;
   flex: none;
 }
+
+/* Where a command has to be run. Small, above the command itself. */
+.check__shell {
+  margin-top: 7px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}

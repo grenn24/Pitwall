@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-import type { DoctorReport, FixId, FixOutcome } from '../shared/doctor'
+import type { DoctorReport } from '../shared/doctor'
 import type { PreviewStatus } from '../shared/preview'
 
 export interface PaneBounds {
@@ -17,14 +17,7 @@ export interface PaneBounds {
  */
 const api = {
   doctor: {
-    run: (): Promise<DoctorReport> => ipcRenderer.invoke('doctor:run'),
-    fix: (id: FixId): Promise<FixOutcome> => ipcRenderer.invoke('doctor:fix', id),
-    /** Live output from a running fix. Returns an unsubscribe function. */
-    onFixProgress: (handler: (payload: { id: FixId; text: string }) => void): (() => void) => {
-      const listener = (_e: unknown, payload: { id: FixId; text: string }): void => handler(payload)
-      ipcRenderer.on('doctor:fix-progress', listener)
-      return () => ipcRenderer.removeListener('doctor:fix-progress', listener)
-    }
+    run: (): Promise<DoctorReport> => ipcRenderer.invoke('doctor:run')
   },
   ticket: {
     open: (remoteUrl: string, ticketId: string): Promise<PreviewStatus> =>
