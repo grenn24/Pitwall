@@ -8,6 +8,7 @@
  * token is printed as a fingerprint, never in full.
  */
 import { requestDeviceCode, pollForToken, GitHubAuthError } from '../src/main/github/auth'
+import { getBranchStatus, getViewer, listInstallations, listRepos } from '../src/main/github/api'
 import { GITHUB_CLIENT_ID } from '../src/shared/github'
 
 const checkOnly = process.argv.includes('check')
@@ -35,12 +36,33 @@ try {
 
   process.stdout.write('\r' + ' '.repeat(40) + '\r')
 
-  const who = await fetch('https://api.github.com/user', {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
-  }).then((r) => r.json() as Promise<{ login?: string; name?: string }>)
+  const who = await getViewer(token)
+  console.log(`signed in as ${who.login}${who.name ? ` (${who.name})` : ``}`)
+  console.log(`token      : ${token.slice(0, 8)}...${token.slice(-4)} (${token.length} chars)`)
 
-  console.log(`signed in as ${who.login ?? '(unknown)'}${who.name ? ` (${who.name})` : ''}`)
-  console.log(`token      : ${token.slice(0, 8)}…${token.slice(-4)} (${token.length} chars)\n`)
+  const installations = await listInstallations(token)
+  console.log(`
+installations: ${installations.length}`)
+
+  for (const install of installations) {
+    console.log(`  ${install.account}  (grants: ${install.repositorySelection})`)
+    const repos = await listRepos(token, install.id)
+    for (const repo of repos) {
+      console.log(`    ${repo.private ? "private" : "public "}  ${repo.fullName}  -> ${repo.defaultBranch}`)
+    }
+
+    // Branch status on the first repository, to prove the read-only half.
+    if (repos.length > 0) {
+      const first = repos[0]
+      const status = await getBranchStatus(token, first.fullName, first.defaultBranch)
+      console.log(
+        `    status of ${first.fullName}@${first.defaultBranch}: ${status.state ?? "no checks configured"}` +
+          `${status.checks.length ? ` (${status.checks.length} check runs)` : ``}` +
+          `${status.deployment ? ` · deploy ${status.deployment.state}` : ``}`
+      )
+    }
+  }
+  console.log("")
 } catch (error: unknown) {
   if (error instanceof GitHubAuthError) {
     console.error(`\nFAILED: ${error.message}${error.code ? `  [${error.code}]` : ''}\n`)
