@@ -446,6 +446,29 @@ td:first-child{color:var(--ink);font-weight:600}
 .cmd-item{display:flex;flex-direction:column;gap:6px}
 .cmd-item h4{font-size:.94rem;font-weight:600;letter-spacing:-.003em}
 .cmd-item p{font-size:.9rem;color:var(--ink-mute)}
+/* Command blocks carry a copy button, injected at load. The wrapper is what
+   positions it; the pre itself keeps its own scrolling. */
+.shwrap{position:relative}
+.shcopy{
+  position:absolute;
+  top:7px;
+  right:7px;
+  font-family:"IBM Plex Mono",monospace;
+  font-size:10px;
+  font-weight:500;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  padding:4px 9px;
+  border-radius:4px;
+  border:1px solid var(--line);
+  background:var(--surface-sunk);
+  color:var(--ink-mute);
+  cursor:pointer;
+  opacity:.75;
+  transition:opacity .12s ease,color .12s ease,border-color .12s ease;
+}
+.shcopy:hover{opacity:1;color:var(--ink);border-color:var(--ink-mute)}
+.shcopy.done{color:var(--ink);border-color:var(--ink);opacity:1}
 pre.sh{
   margin:0;
   padding:12px 14px;
@@ -458,6 +481,7 @@ pre.sh{
   line-height:1.65;
   color:var(--ink);
   white-space:pre;
+  padding-right:74px;
 }
 
 .legend{
@@ -912,6 +936,57 @@ Get-VMSecurity  -VMName "Pitwall-Test" | Select-Object TpmEnabled</pre>
 
 <script>
 (function () {
+  // A command you have to select by hand is a command you mistype. Every block
+  // gets a button; the textarea fallback covers browsers that refuse the
+  // clipboard API to framed content.
+  Array.prototype.forEach.call(document.querySelectorAll('pre.sh'), function (pre) {
+    var wrap = document.createElement('div');
+    wrap.className = 'shwrap';
+    pre.parentNode.insertBefore(wrap, pre);
+    wrap.appendChild(pre);
+
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'shcopy';
+    button.textContent = 'Copy';
+    wrap.appendChild(button);
+
+    button.addEventListener('click', function () {
+      var text = pre.textContent || '';
+      var settle = function () {
+        button.textContent = 'Copied';
+        button.classList.add('done');
+        window.setTimeout(function () {
+          button.textContent = 'Copy';
+          button.classList.remove('done');
+        }, 1600);
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(settle, fallback);
+      } else {
+        fallback();
+      }
+
+      function fallback() {
+        var area = document.createElement('textarea');
+        area.value = text;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        try {
+          document.execCommand('copy');
+          settle();
+        } catch (error) {
+          button.textContent = 'Select it';
+        }
+        document.body.removeChild(area);
+      }
+    });
+  });
+
   var links = Array.prototype.slice.call(document.querySelectorAll('.rail a'));
   var targets = [];
   links.forEach(function (a) {
