@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import type { AuthState, Repo } from '../../shared/github'
+import type { AuthState, BranchStatus, Repo } from '../../shared/github'
 
 /**
  * Signing in, and choosing what to work on.
@@ -21,6 +21,26 @@ export default function GitHub({
   const [busy, setBusy] = useState(true)
   const [noInstalls, setNoInstalls] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [status, setStatus] = useState<BranchStatus | null>(null)
+
+  // What the project's own CI says about the chosen repository. Read-only per
+  // §8: shown, never run.
+  useEffect(() => {
+    setStatus(null)
+    if (!picked) return
+    let cancelled = false
+    void window.pitwall.github
+      .branchStatus(picked.fullName, picked.defaultBranch)
+      .then((s) => {
+        if (!cancelled) setStatus(s)
+      })
+      .catch(() => {
+        if (!cancelled) setStatus(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [picked])
 
   // The device code arrives while signIn is still pending, so it comes over its
   // own channel rather than as a return value.
@@ -131,6 +151,14 @@ export default function GitHub({
                 <span className="repo__name">{repo.fullName}</span>
                 <span className="repo__meta">
                   {repo.private ? 'private' : 'public'} · {repo.defaultBranch}
+                  {picked?.fullName === repo.fullName && status && (
+                    <span className={`ci ci--${status.state ?? 'none'}`}>
+                      {status.state === null
+                        ? 'no checks'
+                        : `${status.state}${status.checks.length ? ` · ${status.checks.length}` : ''}`}
+                      {status.deployment ? ` · ${status.deployment.state}` : ''}
+                    </span>
+                  )}
                 </span>
               </button>
             </li>

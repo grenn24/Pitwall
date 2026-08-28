@@ -1,7 +1,7 @@
 import { GitHubAuthError, pollForToken, requestDeviceCode } from './auth'
-import { GitHubApiError, getViewer, listInstallations, listRepos } from './api'
+import { GitHubApiError, getBranchStatus, getViewer, listInstallations, listRepos } from './api'
 import { clearToken, loadToken, saveToken } from './tokens'
-import type { AuthState, Repo } from '../../shared/github'
+import type { AuthState, BranchStatus, Repo } from '../../shared/github'
 
 /**
  * The signed-in GitHub session.
@@ -113,6 +113,17 @@ export async function repositories(): Promise<Repo[]> {
   return lists
     .flat()
     .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '') || a.fullName.localeCompare(b.fullName))
+}
+
+/**
+ * What the project's own CI says about a branch.
+ *
+ * Read-only, per §8. Pitwall shows what the team's pipeline reports and runs
+ * nothing itself.
+ */
+export async function branchStatus(fullName: string, ref: string): Promise<BranchStatus> {
+  if (!token) throw new GitHubApiError('Not signed in.', 401)
+  return getBranchStatus(token, fullName, ref)
 }
 
 /** True when the app has been authorised but granted nothing. */

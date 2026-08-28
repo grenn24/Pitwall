@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 import type { DoctorReport } from '../shared/doctor'
-import type { AuthState, Repo } from '../shared/github'
+import type { AuthState, BranchStatus, Repo } from '../shared/github'
 import type { PreviewStatus } from '../shared/preview'
 
 export interface PaneBounds {
@@ -30,6 +30,8 @@ const api = {
     signOut: (): Promise<AuthState> => ipcRenderer.invoke('github:signOut'),
     repositories: (): Promise<Repo[]> => ipcRenderer.invoke('github:repositories'),
     hasNoInstallations: (): Promise<boolean> => ipcRenderer.invoke('github:hasNoInstallations'),
+    branchStatus: (fullName: string, ref: string): Promise<BranchStatus> =>
+      ipcRenderer.invoke('github:branchStatus', { fullName, ref }),
     /** The device code arrives here while signIn is still pending. */
     onState: (handler: (state: AuthState) => void): (() => void) => {
       const listener = (_e: unknown, state: AuthState): void => handler(state)

@@ -74,6 +74,9 @@ void app.whenReady().then(() => {
   ipcMain.handle('github:signOut', () => github.signOut())
   ipcMain.handle('github:repositories', () => github.repositories())
   ipcMain.handle('github:hasNoInstallations', () => github.hasNoInstallations())
+  ipcMain.handle('github:branchStatus', (_e, input: { fullName: string; ref: string }) =>
+    github.branchStatus(input.fullName, input.ref)
+  )
 
   // Preview progress is streamed rather than awaited: bringing an environment up
   // takes tens of seconds, and a UI that shows nothing until it finishes is
