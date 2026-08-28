@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 import type { DoctorReport } from '../shared/doctor'
+import type { AuthState, Repo } from '../shared/github'
 import type { PreviewStatus } from '../shared/preview'
 
 export interface PaneBounds {
@@ -18,6 +19,23 @@ export interface PaneBounds {
 const api = {
   doctor: {
     run: (): Promise<DoctorReport> => ipcRenderer.invoke('doctor:run')
+  },
+  github: {
+    /** Restore a stored sign-in on launch. */
+    restore: (): Promise<AuthState> => ipcRenderer.invoke('github:restore'),
+    state: (): Promise<AuthState> => ipcRenderer.invoke('github:state'),
+    /** Resolves when the user has finished on GitHub, or explains why not. */
+    signIn: (): Promise<AuthState> => ipcRenderer.invoke('github:signIn'),
+    cancelSignIn: (): Promise<void> => ipcRenderer.invoke('github:cancelSignIn'),
+    signOut: (): Promise<AuthState> => ipcRenderer.invoke('github:signOut'),
+    repositories: (): Promise<Repo[]> => ipcRenderer.invoke('github:repositories'),
+    hasNoInstallations: (): Promise<boolean> => ipcRenderer.invoke('github:hasNoInstallations'),
+    /** The device code arrives here while signIn is still pending. */
+    onState: (handler: (state: AuthState) => void): (() => void) => {
+      const listener = (_e: unknown, state: AuthState): void => handler(state)
+      ipcRenderer.on('github:state', listener)
+      return () => ipcRenderer.removeListener('github:state', listener)
+    }
   },
   ticket: {
     open: (remoteUrl: string, ticketId: string): Promise<PreviewStatus> =>

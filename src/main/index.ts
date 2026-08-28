@@ -4,6 +4,7 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import { runDoctor } from './doctor/index'
+import * as github from './github/session'
 import { attachPreview, closeTicket, currentStatus, openTicket } from './session'
 import { hidePreview, reloadPreview, setPreviewBounds, type PaneBounds } from './preview/pane'
 
@@ -57,6 +58,22 @@ void app.whenReady().then(() => {
   // which is a question only the Windows side can ask.
   ipcMain.handle('doctor:run', () => runDoctor())
   ipcMain.handle('shell:openExternal', (_event, url: string) => shell.openExternal(url))
+
+  // The token stays in main. The renderer asks for repositories and receives
+  // repositories, never the credential that fetched them.
+  ipcMain.handle('github:restore', () => github.restore())
+  ipcMain.handle('github:state', () => github.currentState())
+  ipcMain.handle('github:signIn', (event) =>
+    github.signIn({
+      onCode: (state) => {
+        if (!event.sender.isDestroyed()) event.sender.send('github:state', state)
+      }
+    })
+  )
+  ipcMain.handle('github:cancelSignIn', () => github.cancelSignIn())
+  ipcMain.handle('github:signOut', () => github.signOut())
+  ipcMain.handle('github:repositories', () => github.repositories())
+  ipcMain.handle('github:hasNoInstallations', () => github.hasNoInstallations())
 
   // Preview progress is streamed rather than awaited: bringing an environment up
   // takes tens of seconds, and a UI that shows nothing until it finishes is
