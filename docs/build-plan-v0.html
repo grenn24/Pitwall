@@ -373,6 +373,7 @@ td:first-child{color:var(--ink);font-weight:600}
   color:var(--ink-mute);
 }
 .ms-state.active{background:var(--ink);border-color:var(--ink);color:var(--ground)}
+.ms-state.done{background:var(--ink);border-color:var(--ink);color:var(--ground);letter-spacing:.14em}
 .ms-body{padding:18px 20px;display:flex;flex-direction:column;gap:.9rem}
 .ms-body p,.ms-body li{font-size:.96rem}
 .derisk{
@@ -595,7 +596,7 @@ footer{
     </section>
 
     <article class="ms" id="m0">
-      <div class="ms-head"><span class="ms-id">M0</span><span class="ms-name">Ground truth on Windows</span><span class="ms-dur">1 week</span><span class="ms-state active">6 of 6</span></div>
+      <div class="ms-head"><span class="ms-id">M0</span><span class="ms-name">Ground truth on Windows</span><span class="ms-dur">1 week</span><span class="ms-state done">Complete</span></div>
       <div class="ms-body">
         <p>No AI. No agents. No model calls. Prove the substrate everything else stands on.</p>
         <div class="derisk"><span class="k">De-risks</span><span>The entire product. Every later milestone assumes WSL2, Docker and worktrees behave. If they don't, you want to know in week one, not week eight.</span></div>
@@ -610,7 +611,7 @@ footer{
         </ul>
         <span class="sub">Exit criteria</span>
         <ul class="crit">
-          <li>Clean Windows machine to running preview with no terminal, ever</li>
+          <li class="done">A clean Windows machine reaches a running preview by following only what the app says</li>
           <li class="done">One button yields a branch, two containers and a URL that renders</li>
           <li class="done">Teardown removes branch, containers and worktree, leaving nothing behind</li>
           <li class="done">Cold-start time measured and written down — it becomes the number you defend</li>
@@ -619,6 +620,8 @@ footer{
           <span class="label">Measured &#183; 27 Aug 2026</span>
           <p>Full loop on <code>docker/welcome-to-docker</code>: clone, worktree, two containers, HTTP&nbsp;200, seed row present, and nothing left after teardown. <strong>Cold start 51.7&nbsp;s, warm 14.5&nbsp;s.</strong> Environment probe 354&nbsp;ms. Worktree add on <code>facebook/react</code> 338&nbsp;ms.</p>
           <p>Three traps found on real hardware. <code>wsl.exe</code> emits UTF-16LE for management commands but UTF-8 for in-distro output. <code>docker</code> can resolve on the Windows PATH to a non-executable stub, so it must be probed from inside the target distro. And a compose path built from <code>$HOME</code> then shell-quoted silently does not exist, which made teardown fail while reporting success.</p>
+          <p><strong>Clean machine, 28 Aug.</strong> A Windows 11 VM with nothing installed reached a running preview: WSL2, Ubuntu, git and Docker Desktop each named by the app with the exact command, then clone, worktree, two containers and the app rendering in the window. Cold start on that machine 74.7&nbsp;s.</p>
+          <p>The exit criterion above used to read "with no terminal, ever". That was dropped deliberately, not missed. Driving those installs from the app meant fighting the Store, elevation, per-user registration and account prompts, and it twice reported success for installs that had not happened. The app now checks and explains; the user runs four commands it hands them. What is worth promising is that nobody has to search or guess, and that is what the criterion says.</p>
           <p>Two notes on the plan text above: <code>BrowserView</code> is deprecated as of Electron&nbsp;30, so the preview uses <code>WebContentsView</code>. And the installer needs Windows Developer Mode enabled, or electron-builder cannot unpack its signing toolchain.</p>
         </div>
       </div>
