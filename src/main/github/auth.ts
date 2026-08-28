@@ -27,6 +27,29 @@ export class GitHubAuthError extends Error {
 }
 
 /**
+ * Make the request through whichever stack trusts this machine.
+ *
+ * Node ships its own certificate list, which does not include the roots that
+ * antivirus and corporate proxies use to re-sign HTTPS. Norton does exactly
+ * that on the machine this was built on, and Node refused the connection while
+ * every browser on the same machine was fine.
+ *
+ * Electron's net module uses Chromium's stack, which reads the Windows
+ * certificate store where those roots live. Outside Electron — the CLI tools —
+ * there is no such module and Node's fetch is used, with the scripts passing
+ * --use-system-ca for the same reason.
+ */
+async function transport(url: string, init: RequestInit): Promise<Response> {
+  try {
+    const electron = await import('electron')
+    if (electron?.net?.fetch) return await electron.net.fetch(url, init)
+  } catch {
+    // Not running inside Electron. Expected for the command line tools.
+  }
+  return fetch(url, init)
+}
+
+/**
  * Turn a network failure into something worth reading.
  *
  * Node reports every transport problem as "TypeError: fetch failed" with the
@@ -35,7 +58,7 @@ export class GitHubAuthError extends Error {
  */
 export async function fetchOrExplain(url: string, init: RequestInit, what: string): Promise<Response> {
   try {
-    return await fetch(url, init)
+    return await transport(url, init)
   } catch (error) {
     const cause = (error as { cause?: { code?: string; message?: string } }).cause
     const code = cause?.code ?? ''
