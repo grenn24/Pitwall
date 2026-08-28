@@ -60,9 +60,14 @@ button:focus-visible,
    matters on the first-run copy. */
 .shell--working {
   max-width: 1600px;
-  height: 100%;
+  min-height: 100%;
   padding: 20px 24px 24px;
   gap: 16px;
+}
+/* Every child sizes to its content and the page scrolls, rather than the
+   children fighting over a fixed height and each growing its own scrollbar. */
+.shell--working > * {
+  flex: none;
 }
 
 /* ---------- collapsed environment line ---------- */
@@ -347,8 +352,7 @@ h1 {
    space and stay empty while a preview is running. */
 .stage {
   position: relative;
-  min-height: 380px;
-  flex: 1;
+  min-height: 420px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface-sunk);
@@ -545,7 +549,6 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 0;
 }
 .repos__head {
   display: flex;
@@ -575,7 +578,8 @@ h1 {
   gap: 4px;
   margin: 0;
   padding: 0;
-  max-height: 220px;
+  /* Scrolls only once there are genuinely too many to show. */
+  max-height: 40vh;
   overflow-y: auto;
 }
 .repo {
@@ -762,8 +766,6 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  max-height: 220px;
-  overflow-y: auto;
 }
 .trail li {
   display: grid;
