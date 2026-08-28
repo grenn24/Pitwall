@@ -15,7 +15,8 @@
     "preview": "tsx scripts/preview-cli.ts",
     "dist": "electron-vite build && electron-builder --win --config electron-builder.yml",
     "dist:unsigned": "electron-vite build && electron-builder --win --config electron-builder.yml --config.win.signAndEditExecutable=false",
-    "audit": "tsx scripts/audit.ts"
+    "audit": "tsx scripts/audit.ts",
+    "github": "tsx scripts/github-cli.ts"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
