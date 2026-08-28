@@ -91,7 +91,11 @@ export const FIXES: Record<FixId, Fix> = {
     // opens the distribution and creates an account, which is fine for cloning
     // and running containers.
     args: ['--install', 'Ubuntu', '--web-download', '--no-launch'],
-    elevated: true,
+    // Not elevated, and so not routed through PowerShell at all: this path
+    // calls wsl.exe directly with an argument array. Registering a
+    // distribution is a per-user operation that does not need admin, and an
+    // elevated token changes the user the distribution would belong to.
+    elevated: false,
     whileRunning: 'Downloading and registering Ubuntu. This is a few hundred megabytes.',
     afterward: 'Ubuntu is installed.',
     landed: async () => chooseTargetDistro((await listDistros()).distros) !== null
@@ -145,15 +149,50 @@ export function runFix(id: FixId, onProgress?: (text: string) => void): Promise<
   return runViaScript(fix, true, onProgress)
 }
 
+/**
+ * Run a command directly, with no shell and no script.
+ *
+ * Arguments go as an array, so nothing is parsed or quoted by anyone.
+ *
+ * Like the elevated path, a clean exit is not proof. wsl.exe exits zero on an
+ * unrecognised option having done nothing at all, so when the fix can check the
+ * machine, the machine decides.
+ */
 function runPlain(fix: Fix): Promise<FixOutcome> {
   return new Promise((resolve) => {
-    execFile(fix.file, fix.args, { timeout: 30 * 60_000, windowsHide: true, encoding: 'buffer' }, (err, out, errOut) => {
-      if (!err) {
+    execFile(fix.file, fix.args, { timeout: 30 * 60_000, windowsHide: true, encoding: 'buffer' }, async (err, out, errOut) => {
+      const output = Buffer.concat([out as Buffer, errOut as Buffer]).toString('utf8')
+      diag(`plain ${fix.command} err=${err ? String(err).split('\n')[0] : 'none'} bytes=${output.length}`)
+
+      if (err) {
+        resolve({ ok: false, error: explain(output, err) })
+        return
+      }
+
+      if (!fix.landed) {
         fix.onSuccess?.()
         resolve({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
         return
       }
-      resolve({ ok: false, error: explain(Buffer.concat([out as Buffer, errOut as Buffer]).toString('utf8'), err) })
+
+      const deadline = Date.now() + 90_000
+      while (Date.now() < deadline) {
+        if (await fix.landed().catch(() => false)) {
+          fix.onSuccess?.()
+          diag(`plain ${fix.command} confirmed by machine state`)
+          resolve({ ok: true, afterward: fix.afterward, needsRestart: fix.needsRestart })
+          return
+        }
+        await new Promise((r) => setTimeout(r, 3_000))
+      }
+
+      diag(`plain ${fix.command} exited clean but changed nothing`)
+      resolve({
+        ok: false,
+        error: `The command finished without error, but nothing changed on this machine.\n\n${
+          output.trim().split('\n').slice(-6).join('\n') || '(no output)'
+        }`
+      })
     })
   })
 }
@@ -300,9 +339,7 @@ export function runViaScript(fix: Fix, elevate: boolean, onProgress?: (text: str
       if (processSucceededAt && Date.now() - processSucceededAt > 90_000) {
         done({
           ok: false,
-          error: `The command finished without error, but nothing changed on this machine.
-
-${
+          error: `The command finished without error, but nothing changed on this machine.\n\n${
             text.trim().split('\n').slice(-4).join('\n') || '(no output)'
           }`
         })

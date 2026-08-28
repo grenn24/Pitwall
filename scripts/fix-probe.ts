@@ -53,6 +53,20 @@ const cases: { name: string; fix: Fix; expectOk: boolean; maxMs?: number }[] = [
     maxMs: 120_000
   },
   {
+    // The unelevated path: execFile straight onto the binary, no shell, no
+    // script. It must verify against the machine like the elevated one does.
+    name: 'runs directly with no shell, and verifies',
+    fix: {
+      command: 'ver',
+      file: 'cmd.exe',
+      args: ['/c', 'ver'],
+      elevated: false,
+      landed: async () => true
+    },
+    expectOk: true,
+    maxMs: 20_000
+  },
+  {
     name: 'reports a non-zero exit as failure',
     fix: { command: 'exit 3', file: 'cmd.exe', args: ['/c', 'exit', '3'], elevated: true },
     expectOk: false
