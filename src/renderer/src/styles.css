@@ -481,3 +481,9 @@ h1 {
   overflow-y: auto;
   user-select: text;
 }
+
+.restart__actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}

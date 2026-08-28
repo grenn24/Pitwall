@@ -22,6 +22,7 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
   const [outcome, setOutcome] = useState<FixOutcome | null>(null)
   const [progress, setProgress] = useState('')
   const [elapsed, setElapsed] = useState(0)
+  const [restartIn, setRestartIn] = useState<number | null>(null)
 
   // Elapsed time, because "Running…" on its own cannot distinguish work in
   // progress from something that has quietly stopped answering.
@@ -61,14 +62,29 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
     window.setTimeout(() => setCopied(false), 1600)
   }
 
-  const restart = async (): Promise<void> => {
-    setFixing(true)
-    const result = await window.pitwall.doctor.fix('restart-windows')
-    if (!result.ok) {
-      setOutcome(result)
-      setFixing(false)
+  // A fix that needs a restart restarts the machine, rather than leaving a
+  // button for someone to find. The countdown exists so it is never a surprise
+  // and can be stopped — there may be unsaved work in another window.
+  useEffect(() => {
+    if (!outcome?.needsRestart || !outcome.ok) return
+    setRestartIn(20)
+  }, [outcome?.needsRestart, outcome?.ok])
+
+  useEffect(() => {
+    if (restartIn === null) return
+    if (restartIn <= 0) {
+      void window.pitwall.doctor.fix('restart-windows')
+      return
     }
-    // On success the machine is going down; leave the button disabled.
+    const timer = window.setTimeout(() => setRestartIn((n) => (n === null ? null : n - 1)), 1000)
+    return () => window.clearTimeout(timer)
+  }, [restartIn])
+
+  const restart = async (): Promise<void> => {
+    setRestartIn(null)
+    const result = await window.pitwall.doctor.fix('restart-windows')
+    // On success the machine is going down and there is nothing to report.
+    if (!result.ok) setOutcome(result)
   }
 
   const runFix = async (): Promise<void> => {
@@ -141,11 +157,25 @@ function Check({ check, onFixed }: { check: CheckResult; onFixed: () => void }):
                 <p>
                   {outcome.afterward}
                   <br />
-                  This check stays blocked until then — that is expected, not a failure.
+                  {restartIn === null
+                    ? 'This check stays blocked until Windows restarts — that is expected, not a failure.'
+                    : restartIn > 0
+                      ? `Restarting in ${restartIn} second${restartIn === 1 ? '' : 's'}. Save anything open in other windows.`
+                      : 'Restarting now.'}
                 </p>
-                <button type="button" className="btn btn--tiny btn--primary" onClick={() => void restart()} disabled={fixing}>
-                  Restart Windows
-                </button>
+                <div className="restart__actions">
+                  {restartIn !== null && restartIn > 0 && (
+                    <button type="button" className="btn btn--tiny" onClick={() => setRestartIn(null)}>
+                      Not now
+                    </button>
+                  )}
+                  {/* Never disabled by an unrelated fix still marked running.
+                      A restart button that cannot be clicked because something
+                      else got stuck is the worst possible time to be stuck. */}
+                  <button type="button" className="btn btn--tiny btn--primary" onClick={() => void restart()}>
+                    Restart now
+                  </button>
+                </div>
               </div>
             )}
           </div>
