@@ -633,6 +633,11 @@ footer{
         <h2>The clean-machine loop</h2>
       </div>
       <p>M0's last exit criterion needs a machine that has never seen a dev tool. The VM is <code>Pitwall-Test</code>, and it holds a checkpoint named <code>clean</code> taken after Windows finished installing and before anything else touched it.</p>
+      <div class="note">
+        <span class="label">Set this once per shell</span>
+        <p>The copy commands below use it, so nothing here carries a machine-specific path.</p>
+        <pre class="sh">$Pitwall = "C:\path\to\Pitwall"</pre>
+      </div>
       <div class="note warn">
         <span class="label">Two things that bite</span>
         <p>Every Hyper-V command needs an <strong>elevated</strong> PowerShell. And Windows PowerShell 5.1 rejects <code>&amp;&amp;</code> as a separator — use <code>;</code>, or run PowerShell 7.</p>
@@ -652,7 +657,7 @@ footer{
 Start-VM -Name "Pitwall-Test"
 Start-Sleep -Seconds 60
 Copy-VMFile -Name "Pitwall-Test" `
-  -SourcePath "C:\Users\Hoo Di Heng\OneDrive\Documents\Computer Science\Projects\Pitwall\release\Pitwall-0.0.1-setup.exe" `
+  -SourcePath "$Pitwall\release\Pitwall-0.0.1-setup.exe" `
   -DestinationPath "C:\Users\Public\Downloads\Pitwall-setup.exe" `
   -CreateFullPath -FileSource Host -Force</pre>
         </div>
@@ -661,7 +666,7 @@ Copy-VMFile -Name "Pitwall-Test" `
           <h4>Copy a fresh build in without resetting</h4>
           <p>Same destination every time, overwritten. The VM holds exactly one <code>Pitwall-setup.exe</code>, so there is never a question of which one you are running.</p>
           <pre class="sh">Copy-VMFile -Name "Pitwall-Test" `
-  -SourcePath "C:\Users\Hoo Di Heng\OneDrive\Documents\Computer Science\Projects\Pitwall\release\Pitwall-0.0.1-setup.exe" `
+  -SourcePath "$Pitwall\release\Pitwall-0.0.1-setup.exe" `
   -DestinationPath "C:\Users\Public\Downloads\Pitwall-setup.exe" `
   -CreateFullPath -FileSource Host -Force</pre>
         </div>
