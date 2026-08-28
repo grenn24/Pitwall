@@ -5,6 +5,8 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import { runDoctor } from './doctor/index'
 import * as github from './github/session'
+import * as engine from './engine/session'
+import { readRefusals } from './engine/store'
 import { attachPreview, closeTicket, currentStatus, openTicket } from './session'
 import { hidePreview, reloadPreview, setPreviewBounds, type PaneBounds } from './preview/pane'
 
@@ -74,6 +76,21 @@ void app.whenReady().then(() => {
   ipcMain.handle('github:signOut', () => github.signOut())
   ipcMain.handle('github:repositories', () => github.repositories())
   ipcMain.handle('github:hasNoInstallations', () => github.hasNoInstallations())
+  // Checkpoints stream while runTicket is still pending, because a run takes
+  // long enough that a UI showing nothing until it finishes cannot be told
+  // apart from one that has hung.
+  ipcMain.handle('engine:open', (_e, input: engine.OpenTicketInput) => engine.openTicket(input))
+  ipcMain.handle('engine:run', (event, id: string) =>
+    engine.runTicket(id, (ticket) => {
+      if (!event.sender.isDestroyed()) event.sender.send('engine:checkpoint', ticket)
+    })
+  )
+  ipcMain.handle('engine:stop', () => engine.stopTicket())
+  ipcMain.handle('engine:list', () => engine.list())
+  ipcMain.handle('engine:get', (_e, id: string) => engine.get(id))
+  ipcMain.handle('engine:discard', (_e, id: string) => engine.discard(id))
+  ipcMain.handle('engine:refusals', () => readRefusals())
+
   ipcMain.handle('github:branchStatus', (_e, input: { fullName: string; ref: string }) =>
     github.branchStatus(input.fullName, input.ref)
   )

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { wslExec } from '../wsl/exec'
 import { AGENTS } from './agents'
 import { advance, fail, resumeState } from './machine'
 import { loadTicket, saveTicket } from './store'
@@ -34,6 +35,29 @@ export interface RunOptions {
   /** Stop before starting the stage that owns this state. Used by the tests. */
   stopBefore?: TicketState
   signal?: AbortSignal
+}
+
+/**
+ * Is the distribution actually there?
+ *
+ * Used to tell a stage that failed from a machine that went away. A laptop
+ * closing suspends WSL2, and every in-flight command fails at once — marking
+ * the ticket failed for that would mean a ticket cannot survive a lunch break.
+ */
+async function distroReachable(distro: string): Promise<boolean> {
+  const result = await wslExec(distro, 'echo alive', 20_000)
+  return !result.timedOut && result.stdout.includes('alive')
+}
+
+/** Wait, without blocking a caller that wants to abort. */
+function pause(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer)
+      resolve()
+    }, { once: true })
+  })
 }
 
 export function createTicket(input: { title: string; body: string; repo: string }): Ticket {
@@ -120,6 +144,30 @@ export async function run(ticketId: string, options: RunOptions): Promise<Ticket
       ticket = advance(ticket, stage.done, result.note, stage.role)
       options.onCheckpoint?.(ticket)
     } catch (error) {
+      // A stage can fail because it failed, or because the machine underneath
+      // it went away. Closing a laptop suspends WSL2 and every in-flight
+      // command dies at once; failing the ticket for that would mean a run
+      // cannot survive a lunch break.
+      if (!(await distroReachable(options.distro))) {
+        ticket = advance(ticket, resumeState(ticket.state), 'Waiting: the distribution stopped responding', stage.role)
+        options.onCheckpoint?.(ticket)
+
+        // Wait for it to come back rather than giving up. On wake the next
+        // attempt runs the stage again from where it started.
+        for (let attempt = 0; attempt < 60; attempt++) {
+          if (options.signal?.aborted) return ticket
+          await pause(5_000, options.signal)
+          if (await distroReachable(options.distro)) break
+        }
+
+        if (!(await distroReachable(options.distro))) {
+          ticket = fail(ticket, 'The Linux distribution did not come back. Start it and run this ticket again.')
+          options.onCheckpoint?.(ticket)
+          return ticket
+        }
+        continue
+      }
+
       ticket = fail(ticket, error instanceof Error ? error.message : String(error))
       options.onCheckpoint?.(ticket)
       return ticket

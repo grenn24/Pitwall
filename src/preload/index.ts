@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 import type { DoctorReport } from '../shared/doctor'
 import type { AuthState, BranchStatus, Repo } from '../shared/github'
+import type { Refusal, Ticket } from '../shared/ticket'
 import type { PreviewStatus } from '../shared/preview'
 
 export interface PaneBounds {
@@ -37,6 +38,22 @@ const api = {
       const listener = (_e: unknown, state: AuthState): void => handler(state)
       ipcRenderer.on('github:state', listener)
       return () => ipcRenderer.removeListener('github:state', listener)
+    }
+  },
+  engine: {
+    open: (input: { title: string; body: string; cloneUrl: string; repoFullName: string }): Promise<Ticket> =>
+      ipcRenderer.invoke('engine:open', input),
+    run: (id: string): Promise<Ticket> => ipcRenderer.invoke('engine:run', id),
+    stop: (): Promise<void> => ipcRenderer.invoke('engine:stop'),
+    list: (): Promise<Ticket[]> => ipcRenderer.invoke('engine:list'),
+    get: (id: string): Promise<Ticket | null> => ipcRenderer.invoke('engine:get', id),
+    discard: (id: string): Promise<void> => ipcRenderer.invoke('engine:discard', id),
+    refusals: (): Promise<Refusal[]> => ipcRenderer.invoke('engine:refusals'),
+    /** Every transition, while the run is still going. */
+    onCheckpoint: (handler: (ticket: Ticket) => void): (() => void) => {
+      const listener = (_e: unknown, ticket: Ticket): void => handler(ticket)
+      ipcRenderer.on('engine:checkpoint', listener)
+      return () => ipcRenderer.removeListener('engine:checkpoint', listener)
     }
   },
   ticket: {

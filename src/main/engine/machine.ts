@@ -14,15 +14,17 @@ import type { Checkpoint, RoleId, Ticket, TicketState } from '../../shared/ticke
  */
 
 /** Which state may follow which. Anything absent is refused. */
+// A running state may also rewind to where it began. That is what happens when
+// the machine underneath a stage goes away and the stage has to be repeated.
 const ALLOWED: Record<TicketState, TicketState[]> = {
   draft: ['planning', 'failed'],
-  planning: ['spec_ready', 'failed'],
+  planning: ['spec_ready', 'draft', 'failed'],
   spec_ready: ['writing_tests', 'failed'],
-  writing_tests: ['tests_written', 'failed'],
+  writing_tests: ['tests_written', 'spec_ready', 'failed'],
   tests_written: ['writing_code', 'failed'],
-  writing_code: ['code_complete', 'failed'],
+  writing_code: ['code_complete', 'tests_written', 'failed'],
   code_complete: ['reviewing', 'failed'],
-  reviewing: ['review_passed', 'changes_requested', 'failed'],
+  reviewing: ['review_passed', 'changes_requested', 'code_complete', 'failed'],
   // A send-back re-enters at the implementation stage rather than the start.
   // The spec and the tests are still good; it is the code that was wrong.
   changes_requested: ['writing_code', 'failed'],
