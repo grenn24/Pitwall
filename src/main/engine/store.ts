@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -51,6 +51,22 @@ export function loadTicket(id: string): Ticket | null {
     // A corrupt record is treated as absent. Refusing to start because one
     // ticket file is unreadable would take the whole app down with it.
     return null
+  }
+}
+
+/**
+ * Remove a ticket record.
+ *
+ * Exists for the test harness, which shares this store with the app. Six of its
+ * tickets once turned up in the user's list, which is a good argument for a
+ * harness cleaning up after itself.
+ */
+export function deleteTicket(id: string): void {
+  try {
+    const path = pathFor(id)
+    if (existsSync(path)) unlinkSync(path)
+  } catch {
+    // A record that will not delete is not worth failing over.
   }
 }
 

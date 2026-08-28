@@ -56,23 +56,21 @@ const api = {
       return () => ipcRenderer.removeListener('engine:checkpoint', listener)
     }
   },
-  ticket: {
-    open: (remoteUrl: string, ticketId: string): Promise<PreviewStatus> =>
-      ipcRenderer.invoke('ticket:open', { remoteUrl, ticketId }),
-    close: (): Promise<{ containersLeft: string[] } | null> => ipcRenderer.invoke('ticket:close'),
-    status: (): Promise<PreviewStatus | null> => ipcRenderer.invoke('ticket:status'),
-    /** Returns an unsubscribe function, so a re-render cannot stack listeners. */
-    onPhase: (handler: (status: PreviewStatus) => void): (() => void) => {
-      const listener = (_e: unknown, status: PreviewStatus): void => handler(status)
-      ipcRenderer.on('ticket:phase', listener)
-      return () => ipcRenderer.removeListener('ticket:phase', listener)
-    }
-  },
   preview: {
-    attach: (bounds: PaneBounds): Promise<void> => ipcRenderer.invoke('preview:attach', bounds),
+    start: (id: string): Promise<PreviewStatus> => ipcRenderer.invoke('preview:start', id),
+    stop: (id: string): Promise<{ containersLeft: string[] }> => ipcRenderer.invoke('preview:stop', id),
+    status: (id: string): Promise<PreviewStatus | null> => ipcRenderer.invoke('preview:status', id),
+    attach: (id: string, bounds: PaneBounds): Promise<void> =>
+      ipcRenderer.invoke('preview:attach', { id, bounds }),
     setBounds: (bounds: PaneBounds): Promise<void> => ipcRenderer.invoke('preview:bounds', bounds),
     reload: (): Promise<void> => ipcRenderer.invoke('preview:reload'),
-    hide: (): Promise<void> => ipcRenderer.invoke('preview:hide')
+    hide: (): Promise<void> => ipcRenderer.invoke('preview:hide'),
+    /** Phases arrive while start is still pending. */
+    onPhase: (handler: (payload: { id: string; status: PreviewStatus }) => void): (() => void) => {
+      const listener = (_e: unknown, payload: { id: string; status: PreviewStatus }): void => handler(payload)
+      ipcRenderer.on('preview:phase', listener)
+      return () => ipcRenderer.removeListener('preview:phase', listener)
+    }
   },
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url)
 }

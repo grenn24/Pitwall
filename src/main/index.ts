@@ -7,7 +7,6 @@ import { runDoctor } from './doctor/index'
 import * as github from './github/session'
 import * as engine from './engine/session'
 import { readRefusals } from './engine/store'
-import { attachPreview, closeTicket, currentStatus, openTicket } from './session'
 import { hidePreview, reloadPreview, setPreviewBounds, type PaneBounds } from './preview/pane'
 
 function createWindow(): void {
@@ -95,22 +94,21 @@ void app.whenReady().then(() => {
     github.branchStatus(input.fullName, input.ref)
   )
 
-  // Preview progress is streamed rather than awaited: bringing an environment up
-  // takes tens of seconds, and a UI that shows nothing until it finishes is
-  // indistinguishable from one that has hung.
-  ipcMain.handle('ticket:open', async (event, input: { remoteUrl: string; ticketId: string }) => {
-    return openTicket(input, (status) => {
-      if (!event.sender.isDestroyed()) event.sender.send('ticket:phase', status)
+  // A preview belongs to a ticket and runs on the worktree that ticket already
+  // has. Phases stream while it builds, because a cold start takes long enough
+  // that a silent UI is indistinguishable from a hung one.
+  ipcMain.handle('preview:start', (event, id: string) =>
+    engine.previewTicket(id, (status) => {
+      if (!event.sender.isDestroyed()) event.sender.send('preview:phase', { id, status })
     })
-  })
-  ipcMain.handle('ticket:close', () => closeTicket())
-  ipcMain.handle('ticket:status', () => currentStatus())
-
-  ipcMain.handle('preview:attach', (event, bounds: PaneBounds) => {
+  )
+  ipcMain.handle('preview:stop', (_e, id: string) => engine.stopPreviewFor(id))
+  ipcMain.handle('preview:status', (_e, id: string) => engine.previewOf(id))
+  ipcMain.handle('preview:attach', (event, input: { id: string; bounds: PaneBounds }) => {
     const window = BrowserWindow.fromWebContents(event.sender)
-    if (window) attachPreview(window, bounds)
+    if (window) engine.attachPreviewPane(window, input.id, input.bounds)
   })
-  ipcMain.handle('preview:bounds', (_event, bounds: PaneBounds) => setPreviewBounds(bounds))
+  ipcMain.handle('preview:bounds', (_e, bounds: PaneBounds) => setPreviewBounds(bounds))
   ipcMain.handle('preview:reload', () => reloadPreview())
   ipcMain.handle('preview:hide', () => hidePreview())
 

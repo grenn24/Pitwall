@@ -784,3 +784,31 @@ h1 {
   color: var(--ink-mute);
   text-align: right;
 }
+
+/* ---------- preview, inside a ticket ---------- */
+.preview__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.preview__url {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink);
+  user-select: text;
+}
+.preview__meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+}
+/* A project with no app to preview is a shape, not a failure. */
+.preview__unavailable {
+  font-size: 0.85rem;
+  color: var(--ink-mute);
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  max-width: 62ch;
+}

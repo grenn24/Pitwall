@@ -10,7 +10,7 @@ import { runDoctor } from '../src/main/doctor/index'
 import { cloneRepo, createWorktree, removeWorktree } from '../src/main/workspace/index'
 import { createTicket, loadTicket, readRefusals, resume, run } from '../src/main/engine/index'
 import { advance } from '../src/main/engine/machine'
-import { saveTicket } from '../src/main/engine/store'
+import { deleteTicket, saveTicket } from '../src/main/engine/store'
 import { ToolRefused, writeFile } from '../src/main/engine/tools'
 import { ROLES } from '../src/main/engine/roles'
 import type { Ticket } from '../src/shared/ticket'
@@ -112,6 +112,10 @@ check(!ROLES.reviewer.tools.includes('write_file'), 'the reviewer has no write t
 // ------------------------------------------------------------------ tidy up
 await removeWorktree(distro, repo, ticketId).catch(() => undefined)
 await removeWorktree(distro, repo, killedId).catch(() => undefined)
+// This store is the one the app reads. A harness that leaves its tickets
+// behind puts them in front of the user.
+deleteTicket(ticket.id)
+deleteTicket(finished.id)
 
 console.log(failures === 0 ? '\nall passed\n' : `\n${failures} failed\n`)
 process.exit(failures === 0 ? 0 : 1)

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import type { Repo } from '../../shared/github'
+import Preview from './Preview'
 import type { Ticket, TicketState } from '../../shared/ticket'
 
 /**
@@ -161,6 +162,7 @@ export default function Tickets({ repo }: { repo: Repo }): JSX.Element {
                       </li>
                     ))}
                   </ol>
+                  <Preview ticket={ticket} />
                   <div className="actions">
                     <button type="button" className="btn btn--tiny" onClick={() => void runAgain(ticket.id)} disabled={busy}>
                       Run

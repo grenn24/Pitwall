@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import GitHub from './GitHub'
-import Preview from './Preview'
 import Tickets from './Tickets'
 import type { CheckResult, DoctorReport } from '../../shared/doctor'
 import type { Repo } from '../../shared/github'
@@ -147,7 +146,6 @@ export default function App(): JSX.Element {
         <>
           <GitHub picked={repo} onPick={setRepo} />
           {repo && <Tickets repo={repo} />}
-          {repo && <Preview repo={repo} />}
         </>
       )}
 

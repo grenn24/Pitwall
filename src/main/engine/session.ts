@@ -1,8 +1,12 @@
 import { runDoctor } from '../doctor/index'
 import { cloneRepo, createWorktree, removeWorktree } from '../workspace/index'
+import { containersFor, startPreview, stopPreview } from '../preview/index'
+import { hidePreview, showPreview, type PaneBounds } from '../preview/pane'
 import { allTickets, loadTicket, saveTicket } from './store'
 import { createTicket, run } from './index'
+import type { PreviewStatus } from '../../shared/preview'
 import type { Ticket } from '../../shared/ticket'
+import type { BrowserWindow } from 'electron'
 
 /**
  * What the UI asks for, and what has to happen around a run.
@@ -65,6 +69,60 @@ export async function runTicket(id: string, onCheckpoint: (ticket: Ticket) => vo
 export function stopTicket(): void {
   running?.abort()
   running = null
+}
+
+/**
+ * Bring up a preview for a ticket, on the worktree it already has.
+ *
+ * The preview belongs to the ticket rather than sitting beside it. Cutting a
+ * second worktree for the same ticket — which is what the old separate panel
+ * did — meant two branches, two checkouts and no way to tell which one the
+ * preview was showing.
+ */
+const previews = new Map<string, PreviewStatus>()
+
+export async function previewTicket(
+  id: string,
+  onPhase: (status: PreviewStatus) => void
+): Promise<PreviewStatus> {
+  const ticket = loadTicket(id)
+  if (!ticket?.worktree || !ticket.branch) {
+    return { phase: 'failed', env: null, error: 'This ticket has no workspace yet.' }
+  }
+
+  const target = await distro()
+  const { repo } = await cloneRepo(target, `https://github.com/${ticket.repo}.git`)
+
+  const status = await startPreview({
+    distro: target,
+    repo,
+    worktree: { ticketId: id, branch: ticket.branch, path: ticket.worktree, headSha: '' },
+    onPhase
+  })
+
+  previews.set(id, status)
+  return status
+}
+
+export function previewOf(id: string): PreviewStatus | null {
+  return previews.get(id) ?? null
+}
+
+export async function stopPreviewFor(id: string): Promise<{ containersLeft: string[] }> {
+  const status = previews.get(id)
+  hidePreview()
+  if (!status?.env) return { containersLeft: [] }
+
+  const target = await distro()
+  await stopPreview(target, status.env.composePath)
+  const containersLeft = await containersFor(target, status.env.project)
+  previews.delete(id)
+  return { containersLeft }
+}
+
+export function attachPreviewPane(window: BrowserWindow, id: string, bounds: PaneBounds): void {
+  const url = previews.get(id)?.env?.url
+  if (url) showPreview(window, url, bounds)
 }
 
 export function list(): Ticket[] {

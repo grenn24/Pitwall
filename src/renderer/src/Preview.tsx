@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { PreviewStatus } from '../../shared/preview'
-import type { Repo } from '../../shared/github'
+import type { Ticket } from '../../shared/ticket'
+
+/**
+ * The running app for one ticket.
+ *
+ * Lives inside the ticket rather than beside it. A preview is of a branch, and
+ * the branch belongs to a ticket — a separate panel with its own repository and
+ * ticket fields meant two worktrees for one piece of work and no way to tell
+ * which one you were looking at.
+ */
 
 const PHASE_TEXT: Record<PreviewStatus['phase'], string> = {
   idle: 'Idle',
@@ -10,33 +19,39 @@ const PHASE_TEXT: Record<PreviewStatus['phase'], string> = {
   'building-app': 'Building the app image…',
   'waiting-for-app': 'Waiting for the app to answer…',
   ready: 'Ready',
-  failed: 'Failed'
+  failed: 'Not available'
 }
 
-export default function Preview({ repo }: { repo: Repo }): JSX.Element {
-  const [ticketId, setTicketId] = useState('ticket-1')
+export default function Preview({ ticket }: { ticket: Ticket }): JSX.Element {
   const [status, setStatus] = useState<PreviewStatus | null>(null)
   const [busy, setBusy] = useState(false)
   const slot = useRef<HTMLDivElement>(null)
 
-  // Phase updates arrive on their own channel while ticket.open is still
-  // pending, so the user sees the build progressing rather than a frozen button.
-  useEffect(() => window.pitwall.ticket.onPhase(setStatus), [])
+  useEffect(
+    () =>
+      window.pitwall.preview.onPhase((payload) => {
+        if (payload.id === ticket.id) setStatus(payload.status)
+      }),
+    [ticket.id]
+  )
+
+  useEffect(() => {
+    void window.pitwall.preview.status(ticket.id).then(setStatus)
+  }, [ticket.id])
 
   const ready = status?.phase === 'ready' && status.env
 
   /**
-   * The preview is a native view sitting on top of the window, not a DOM node,
-   * so its bounds have to be pushed to the main process whenever the layout
-   * moves. Layout effect rather than effect: reading the rect after paint would
-   * show the view in last frame's position for a frame.
+   * The preview is a native view over the window, not a DOM node, so its bounds
+   * are pushed to main whenever the layout moves. Layout effect rather than
+   * effect: reading the rect after paint shows it in last frame's position.
    */
   useLayoutEffect(() => {
     if (!ready || !slot.current) return
 
     const push = (): void => {
       const r = slot.current?.getBoundingClientRect()
-      if (r) void window.pitwall.preview.attach({ x: r.x, y: r.y, width: r.width, height: r.height })
+      if (r) void window.pitwall.preview.attach(ticket.id, { x: r.x, y: r.y, width: r.width, height: r.height })
     }
 
     push()
@@ -47,85 +62,59 @@ export default function Preview({ repo }: { repo: Repo }): JSX.Element {
       observer.disconnect()
       window.removeEventListener('scroll', push, true)
     }
-  }, [ready])
+  }, [ready, ticket.id])
 
-  const open = useCallback(async () => {
+  const start = useCallback(async () => {
     setBusy(true)
     setStatus({ phase: 'writing-compose', env: null })
     try {
-      setStatus(await window.pitwall.ticket.open(repo.cloneUrl, ticketId.trim() || 'ticket-1'))
+      setStatus(await window.pitwall.preview.start(ticket.id))
     } finally {
       setBusy(false)
     }
-  }, [repo.cloneUrl, ticketId])
+  }, [ticket.id])
 
-  const close = useCallback(async () => {
+  const stop = useCallback(async () => {
     setBusy(true)
     try {
-      const result = await window.pitwall.ticket.close()
+      await window.pitwall.preview.stop(ticket.id)
       setStatus(null)
-      if (result && result.containersLeft.length > 0) {
-        console.warn('Containers survived teardown:', result.containersLeft)
-      }
     } finally {
       setBusy(false)
     }
-  }, [])
+  }, [ticket.id])
 
   return (
-    <section className="preview">
-      <div className="bar">
-        <div className="field">
-          <span>Repository</span>
-          <p className="field__value">{repo.fullName}</p>
-        </div>
-        <label className="field field--narrow">
-          <span>Ticket</span>
-          <input value={ticketId} onChange={(e) => setTicketId(e.target.value)} disabled={busy || !!ready} spellCheck={false} />
-        </label>
-        {ready ? (
-          <div className="actions">
-            <button type="button" className="btn" onClick={() => void window.pitwall.preview.reload()}>
+    <div className="preview">
+      <div className="preview__bar">
+        {ready && status.env ? (
+          <>
+            <span className="preview__url">{status.env.url}</span>
+            <span className="preview__meta">up in {((status.elapsedMs ?? 0) / 1000).toFixed(1)}s</span>
+            <button type="button" className="btn btn--tiny" onClick={() => void window.pitwall.preview.reload()}>
               Reload
             </button>
-            <button type="button" className="btn" onClick={() => void close()} disabled={busy}>
-              Tear down
+            <button type="button" className="btn btn--tiny" onClick={() => void stop()} disabled={busy}>
+              Stop preview
             </button>
-          </div>
+          </>
         ) : (
-          <button type="button" className="btn btn--primary" onClick={() => void open()} disabled={busy}>
-            {busy ? 'Working…' : 'Create preview'}
+          <button type="button" className="btn btn--tiny" onClick={() => void start()} disabled={busy}>
+            {busy ? (status ? PHASE_TEXT[status.phase] : 'Starting…') : 'Start preview'}
           </button>
         )}
       </div>
 
-      {ready && status.env && (
-        <div className="urlbar">
-          <span className="urlbar__url">{status.env.url}</span>
-          <span className="urlbar__meta">
-            {status.env.databaseUrl} · up in {((status.elapsedMs ?? 0) / 1000).toFixed(1)}s
-          </span>
+      {status?.phase === 'failed' && (
+        <div className="preview__unavailable">
+          {/* Not every project has an app to preview. A desktop app, a library
+              or a CLI never will, and the reviewer judges those on tests
+              alone. Saying so is different from reporting a failure. */}
+          <p>{status.error}</p>
         </div>
       )}
 
-      <div className="stage" ref={slot}>
-        {!status && <p className="stage__idle">No preview running. Create one to see the app.</p>}
-        {status && !ready && status.phase !== 'failed' && (
-          <p className="stage__idle">
-            {PHASE_TEXT[status.phase]}
-            <span className="stage__hint">First run pulls and builds images. Later runs are much faster.</span>
-          </p>
-        )}
-        {status?.phase === 'failed' && (
-          <div className="stage__error">
-            <p className="stage__errorTitle">Preview did not start</p>
-            <pre>{status.error}</pre>
-            <button type="button" className="btn" onClick={() => setStatus(null)}>
-              Dismiss
-            </button>
-          </div>
-        )}
-      </div>
-    </section>
+      {(ready || (busy && status?.phase !== 'failed')) && <div className="stage" ref={slot} />}
+    </div>
   )
 }
