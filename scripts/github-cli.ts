@@ -44,6 +44,15 @@ try {
   console.log(`
 installations: ${installations.length}`)
 
+  // Signing in and installing are different acts. A user can authorise the app
+  // and still have granted it nothing, which looks like a failure and is not.
+  if (installations.length === 0) {
+    console.log('')
+    console.log('  The app is authorised but not installed anywhere, so it can see no repositories.')
+    console.log('  Install it from the app settings page: Install App -> pick an account -> choose repositories.')
+    console.log('')
+  }
+
   for (const install of installations) {
     console.log(`  ${install.account}  (grants: ${install.repositorySelection})`)
     const repos = await listRepos(token, install.id)
