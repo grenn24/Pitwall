@@ -26,6 +26,38 @@ export class GitHubAuthError extends Error {
   }
 }
 
+/**
+ * Turn a network failure into something worth reading.
+ *
+ * Node reports every transport problem as "TypeError: fetch failed" with the
+ * real cause buried underneath, which tells a user nothing about whether to
+ * retry, check their connection, or look at a proxy.
+ */
+export async function fetchOrExplain(url: string, init: RequestInit, what: string): Promise<Response> {
+  try {
+    return await fetch(url, init)
+  } catch (error) {
+    const cause = (error as { cause?: { code?: string; message?: string } }).cause
+    const code = cause?.code ?? ''
+    if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+      throw new GitHubAuthError(`Could not resolve github.com while trying to ${what}. Check the network connection.`)
+    }
+    if (code === 'ECONNREFUSED' || code === 'ECONNRESET' || code === 'UND_ERR_SOCKET') {
+      throw new GitHubAuthError(`The connection to GitHub dropped while trying to ${what}. Try again.`)
+    }
+    if (code.includes('CERT') || code.includes('SELF_SIGNED')) {
+      throw new GitHubAuthError(
+        `The certificate GitHub presented was not trusted while trying to ${what}. ` +
+          'This usually means antivirus or a proxy is inspecting HTTPS traffic.'
+      )
+    }
+    if ((error as Error).name === 'TimeoutError') {
+      throw new GitHubAuthError(`GitHub did not answer in time while trying to ${what}. Try again.`)
+    }
+    throw new GitHubAuthError(`Could not reach GitHub while trying to ${what}${code ? ` (${code})` : ''}.`)
+  }
+}
+
 interface DeviceCodeResponse {
   device_code: string
   user_code: string
@@ -55,14 +87,14 @@ function startupMessage(status: number, error?: string): string {
 
 /** Start a sign-in. Returns what to show the user, and the handle to poll with. */
 export async function requestDeviceCode(): Promise<{ code: DeviceCode; deviceCode: string; interval: number }> {
-  const response = await fetch(DEVICE_CODE_URL, {
+  const response = await fetchOrExplain(DEVICE_CODE_URL, {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     // No scope. A GitHub App's permissions are fixed when it is installed, and
     // asking for scopes here is an OAuth App concept that does not apply.
     body: JSON.stringify({ client_id: GITHUB_CLIENT_ID }),
     signal: AbortSignal.timeout(20_000)
-  })
+  }, 'start the sign-in')
 
   const body = (await response.json().catch(() => ({}))) as Partial<DeviceCodeResponse> & { error?: string }
 
@@ -107,7 +139,7 @@ export async function pollForToken(options: PollOptions): Promise<string> {
     if (options.signal?.aborted) throw new GitHubAuthError('Sign-in cancelled.')
     await sleep(interval * 1000, options.signal)
 
-    const response = await fetch(ACCESS_TOKEN_URL, {
+    const response = await fetchOrExplain(ACCESS_TOKEN_URL, {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -116,7 +148,7 @@ export async function pollForToken(options: PollOptions): Promise<string> {
         grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
       }),
       signal: AbortSignal.timeout(20_000)
-    })
+    }, 'complete the sign-in')
 
     const body = (await response.json().catch(() => ({}))) as {
       access_token?: string

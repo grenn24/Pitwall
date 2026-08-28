@@ -1,3 +1,4 @@
+import { fetchOrExplain } from './auth'
 import type { BranchStatus, Repo } from '../../shared/github'
 
 /**
@@ -24,14 +25,14 @@ export class GitHubApiError extends Error {
 }
 
 async function get<T>(token: string, path: string): Promise<T> {
-  const response = await fetch(`${API}${path}`, {
+  const response = await fetchOrExplain(`${API}${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28'
     },
     signal: AbortSignal.timeout(20_000)
-  })
+  }, `read ${path.split('?')[0]}`)
 
   if (response.status === 401) {
     // The one failure worth naming: a revoked or expired token. Everything
