@@ -6,7 +6,8 @@ import type { CheckId, CheckResult, DoctorReport } from '../../shared/doctor'
 
 const DOCS = {
   wsl: 'https://learn.microsoft.com/windows/wsl/install',
-  docker: 'https://docs.docker.com/desktop/setup/install/windows-install/'
+  docker: 'https://docs.docker.com/desktop/setup/install/windows-install/',
+  ubuntu: 'https://ubuntu.com/desktop/wsl'
 }
 
 /**
@@ -82,9 +83,13 @@ export async function runDoctor(): Promise<DoctorReport> {
         distros.length > 0
           ? `Only Docker Desktop's own distributions are present (${distros.map((d) => d.name).join(', ')}), and those are reset on upgrade.`
           : 'None installed.',
-      remediation: 'Installs Ubuntu. No restart needed afterwards.',
-      fixId: 'distro-install',
-      docsUrl: DOCS.wsl,
+      // Not automated. Installing a distribution headlessly means fighting the
+      // Store, the account prompt and a per-user registration that resists
+      // elevation. Run interactively by a person, all three just work.
+      command: 'wsl --install Ubuntu',
+      remediation:
+        'Run this in a terminal. It downloads Ubuntu and then asks you to choose a username and password. No restart needed afterwards.',
+      docsUrl: DOCS.ubuntu,
       raw: listRaw
     })
     return finish(checks, null, started)
